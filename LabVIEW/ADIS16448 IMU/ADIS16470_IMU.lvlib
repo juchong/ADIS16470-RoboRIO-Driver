@@ -9,27 +9,21 @@
 </Property>
 	<Item Name="Private" Type="Folder">
 		<Property Name="NI.LibItem.Scope" Type="Int">1</Property>
-		<Item Name="ADI_IMU_ADIS16470_AHRS_Madgwick.vi" Type="VI" URL="../ADI_IMU_ADIS16470_AHRS_Madgwick.vi"/>
-		<Item Name="ADI_IMU_ADIS16470_AHRS_RoboBees.vi" Type="VI" URL="../ADI_IMU_ADIS16470_AHRS_RoboBees.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_Checksum.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Checksum.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_Data-Address to SPI.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Data-Address to SPI.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_FGV.vi" Type="VI" URL="../ADI_IMU_ADIS16470_FGV.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_GetSetRefNum.vi" Type="VI" URL="../ADI_IMU_ADIS16470_GetSetRefNum.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_HardwareResetDelay.vi" Type="VI" URL="../ADI_IMU_ADIS16470_HardwareResetDelay.vi"/>
-		<Item Name="ADI_IMU_ADIS16470_OffsetComp.vi" Type="VI" URL="../ADI_IMU_ADIS16470_OffsetComp.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_ReadRegister.vi" Type="VI" URL="../ADI_IMU_ADIS16470_ReadRegister.vi"/>
-		<Item Name="ADI_IMU_ADIS16470_ReadSensorData.vi" Type="VI" URL="../ADI_IMU_ADIS16470_ReadSensorData.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_Registers.ctl" Type="VI" URL="../ADI_IMU_ADIS16470_Registers.ctl"/>
 		<Item Name="ADI_IMU_ADIS16470_ScaleData.vi" Type="VI" URL="../ADI_IMU_ADIS16470_ScaleData.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_SPIDelay.vi" Type="VI" URL="../ADI_IMU_ADIS16470_SPIDelay.vi"/>
-		<Item Name="ADI_IMU_ADIS16470_Tilt_RoboBees.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Tilt_RoboBees.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_WriteReadRegister.vi" Type="VI" URL="../ADI_IMU_ADIS16470_WriteReadRegister.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_WriteRegister.vi" Type="VI" URL="../ADI_IMU_ADIS16470_WriteRegister.vi"/>
 	</Item>
 	<Item Name="Public" Type="Folder">
 		<Property Name="NI.LibItem.Scope" Type="Int">1</Property>
 		<Item Name="ADI_IMU_ADIS16470_Close.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Close.vi"/>
-		<Item Name="ADI_IMU_ADIS16470_Get AHRS.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Get AHRS.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_Get Angles.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Get Angles.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_Get Instant.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Get Instant.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_IMUDevRef.ctl" Type="VI" URL="../ADI_IMU_ADIS16470_IMUDevRef.ctl"/>
