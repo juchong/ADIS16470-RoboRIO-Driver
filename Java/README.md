@@ -2,24 +2,24 @@
 
 ## Gradle Install
 As this driver depends on WPILib, we strongly recommend any team using gradle to use [GradleRIO](https://github.com/Open-RIO/GradleRIO)
-* Add [JitPack](https://jitpack.io/#juchong/ADIS16448-RoboRIO-Driver) to your `repositories` block: ``maven { url 'https://jitpack.io' }``
-* Add ``compile 'com.github.juchong:ADIS16448-RoboRIO-Driver:master-SNAPSHOT'`` to your `dependencies` block (this will always be the most recent version, see jitpack for more details)
+* Add [JitPack](https://jitpack.io/#juchong/ADIS16470-RoboRIO-Driver) to your `repositories` block: ``maven { url 'https://jitpack.io' }``
+* Add ``compile 'com.github.juchong:ADIS16470-RoboRIO-Driver:master-SNAPSHOT'`` to your `dependencies` block (this will always be the most recent version, see jitpack for more details)
 
 Your gradle build file will end up looking something like this if you use GradleRIO: [build.gradle.example](build.gradle.example)
 
 ## Manual Install
-* Copy the `com/analog/adis16448` package into your `src/` folder
+* Copy the `com/analog/adis16470` package into your `src/` folder
 
 ## Usage
 Make a new instance of the driver, and use it however you like. For example:
 ```java
-import com.analog.adis16448.frc.ADIS16448_IMU;
+import com.analog.adis16470.frc.ADIS16470_IMU;
 
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.IterativeRobot;
 
 public class Robot extends IterativeRobot {
-  public static final ADIS16448_IMU imu = new ADIS16448_IMU();
+  public static final ADIS16470_IMU imu = new ADIS16470_IMU();
   
   @Override
   public void robotPeriodic() { 
