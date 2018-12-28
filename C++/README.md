@@ -65,8 +65,9 @@ class Robot : public frc::TimedRobot {
   frc::Spark m_right{kRightMotorPort};
   frc::DifferentialDrive m_robotDrive{m_left, m_right};
   frc::Joystick m_joystick{kJoystickPort};
-  //frc::ADIS16470_IMU m_imu{frc::ADIS16470_IMU::kZ, SPI::Port::kOnboardCS0};
   frc::ADIS16470_IMU m_imu{};
+  // Note: Either configuration is valid.
+  //frc::ADIS16470_IMU m_imu{frc::ADIS16470_IMU::kZ, SPI::Port::kOnboardCS0};
 };
 
 int main() { return frc::StartRobot<Robot>(); }
