@@ -28,7 +28,7 @@ Make a new instance of the driver, and use it however you like. For example:
 #include <ADIS16470_IMU.h>
 
 /**
- * This is a sample program to demonstrate how to use the ADIS16448 IMU sensor 
+ * This is a sample program to demonstrate how to use the ADIS16470 IMU sensor 
  * to make a robot drive straight. This program uses a joystick to drive forwards 
  * and backwards while the gyro is used for direction keeping.
  */
