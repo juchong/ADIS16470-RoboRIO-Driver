@@ -113,8 +113,7 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
   DriverStation::ReportError("ADIS16470 IMU Successfully Initialized!");
 
   // Report usage and post data to DS
-  HAL_Report(HALUsageReporting::kResourceType_ADIS16448, 0);
-  //HAL_Report(HALUsageReporting::kResourceType_ADIS16470, 0);
+  HAL_Report(HALUsageReporting::kResourceType_ADIS16470, 0);
   SetName("ADIS16470", 0);
 }
 
