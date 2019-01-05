@@ -22,7 +22,7 @@ Plug in the expansion board as shown below. **Be careful not to offset the conne
 
 Your RoboRIO should be imaged to match the version of the NI Update Suite installed on your PC. For example, if you have the latest (of this writing) update suite installed (2019.b3), then you must have the **FRC_roboRIO_2019_v9** image and **roboRIO_6.0.0** firmware installed as well. This driver relies heavily on the FPGA image loaded in the RoboRIO and _**will not work**_ on older versions. The most current NI Update Suite can be found [here](https://forums.ni.com/t5/FIRST-Robotics-Competition/FRC-Update-Suite/ta-p/3737502).
 
-![ADIS16470 Breakout Board Installed on a RoboRIO](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/reference/RioSensorBoard.jpg)
+![ADIS16470 Breakout Board Installed on a RoboRIO](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/Reference/RioSensorBoard.jpg)
 
 ## How do I use the IMU with my programming language?
 
