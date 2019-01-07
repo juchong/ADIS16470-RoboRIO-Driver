@@ -300,8 +300,6 @@ class ADIS16470_IMU : public GyroBase {
   std::atomic_bool m_freed;
 
   SPI m_spi;
-  std::unique_ptr<frc::DigitalOutput> m_reset_out;
-  std::unique_ptr<frc::DigitalInput> m_reset_in;
   std::unique_ptr<frc::DigitalSource> m_interrupt;
 
   std::thread m_acquire_task;

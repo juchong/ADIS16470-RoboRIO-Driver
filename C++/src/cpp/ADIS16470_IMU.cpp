@@ -51,14 +51,6 @@ using namespace frc;
 ADIS16470_IMU::ADIS16470_IMU() : ADIS16470_IMU(kZ, SPI::Port::kOnboardCS0) {}
 
 ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_axis), m_spi(port) {
-  
-/*   // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
-  DigitalOutput *m_reset_out = new DigitalOutput(18);  // Drive MXP DIO8 low
-  Wait(0.01);  // Wait 10ms
-  m_reset_out -> ~DigitalOutput();
-  DigitalInput *m_reset_in = new DigitalInput(18);  // Set MXP DIO8 high
-  m_reset_in -> ~DigitalInput(); */
-  Wait(0.5);  // Wait 500ms
 
   // Set general SPI settings
   m_spi.SetClockRate(1000000);
@@ -110,7 +102,7 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
   Reset();
   
   // Let the user know the IMU was initiallized successfully
-  DriverStation::ReportError("ADIS16470 IMU Successfully Initialized!");
+  DriverStation::ReportWarning("ADIS16470 IMU Successfully Initialized!");
 
   // Report usage and post data to DS
   HAL_Report(HALUsageReporting::kResourceType_ADIS16470, 0);
@@ -273,35 +265,23 @@ void ADIS16470_IMU::Acquire() {
 
 double ADIS16470_IMU::GetAngle() const {
   switch (m_yaw_axis) {
-    case kX: {
+    case kX: 
       return GetAngleX();
-      break;
-    }
-    case kY: {
+    case kY: 
       return GetAngleY();
-      break;
-    }
-    case kZ: {
+    case kZ: 
       return GetAngleZ();
-      break;
-    }
   }
 }
 
 double ADIS16470_IMU::GetRate() const {
   switch (m_yaw_axis) {
-    case kX: {
+    case kX: 
       return GetRateX();
-      break;
-    }
-    case kY: {
+    case kY: 
       return GetRateY();
-      break;
-    }
-    case kZ: {
+    case kZ: 
       return GetRateZ();
-      break;
-    }
   }
 }
 
@@ -386,18 +366,18 @@ void ADIS16470_IMU::InitSendable(SendableBuilder& builder) {
   auto status = builder.GetEntry("Status").GetHandle();
   auto counter = builder.GetEntry("Counter").GetHandle();
   builder.SetUpdateTable([=]() {
-	nt::NetworkTableEntry(gyroX).SetDouble(GetRateX());
-	nt::NetworkTableEntry(gyroY).SetDouble(GetRateY());
-	nt::NetworkTableEntry(gyroZ).SetDouble(GetRateZ());
-	nt::NetworkTableEntry(accelX).SetDouble(GetAccelX());
-	nt::NetworkTableEntry(accelY).SetDouble(GetAccelY());
-	nt::NetworkTableEntry(accelZ).SetDouble(GetAccelZ());
-	nt::NetworkTableEntry(angleX).SetDouble(GetAngleX());
-	nt::NetworkTableEntry(angleY).SetDouble(GetAngleY());
-	nt::NetworkTableEntry(angleZ).SetDouble(GetAngleZ());
-  nt::NetworkTableEntry(temp).SetDouble(GetTemperature());
-  nt::NetworkTableEntry(dt).SetDouble(Getdt());
-  nt::NetworkTableEntry(status).SetDouble(GetStatus());
-  nt::NetworkTableEntry(counter).SetDouble(GetCounter());
+    nt::NetworkTableEntry(gyroX).SetDouble(GetRateX());
+    nt::NetworkTableEntry(gyroY).SetDouble(GetRateY());
+    nt::NetworkTableEntry(gyroZ).SetDouble(GetRateZ());
+    nt::NetworkTableEntry(accelX).SetDouble(GetAccelX());
+    nt::NetworkTableEntry(accelY).SetDouble(GetAccelY());
+    nt::NetworkTableEntry(accelZ).SetDouble(GetAccelZ());
+    nt::NetworkTableEntry(angleX).SetDouble(GetAngleX());
+    nt::NetworkTableEntry(angleY).SetDouble(GetAngleY());
+    nt::NetworkTableEntry(angleZ).SetDouble(GetAngleZ());
+    nt::NetworkTableEntry(temp).SetDouble(GetTemperature());
+    nt::NetworkTableEntry(dt).SetDouble(Getdt());
+    nt::NetworkTableEntry(status).SetDouble(GetStatus());
+    nt::NetworkTableEntry(counter).SetDouble(GetCounter());
   });
 }
