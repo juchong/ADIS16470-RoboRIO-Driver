@@ -179,6 +179,9 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
   public ADIS16470_IMU(Axis yaw_axis, SPI.Port port) {
     m_yaw_axis = yaw_axis;
 
+    //TODO: DIO based reset
+    Timer.delay(0.5);
+
     m_spi = new SPI(port);
     m_spi.setClockRate(1000000);
     m_spi.setMSBFirst();
@@ -363,7 +366,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
   }
 
   private void acquire() {
-    ByteBuffer readBuf = ByteBuffer.allocateDirect(16000);
+    ByteBuffer readBuf = ByteBuffer.allocateDirect(64000);
     readBuf.order(ByteOrder.LITTLE_ENDIAN);
     double gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z, temp, status, counter;
     int data_count = 0;
@@ -382,28 +385,25 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
   	  array_offset = data_count % 92; // Look for "extra" data This is 92 not 23 like in C++ b/c everything is 32-bits and takes up 4 bytes in the buffer
   	  data_to_read = data_count - array_offset; // Discard "extra" data
       m_spi.readAutoReceivedData(readBuf,data_to_read,0); // Read data from DMA buffer
-      System.out.println("Data count: " + data_to_read);
-  	  for(int i = 0; i < data_to_read; i += 92) { // Process each set of 2 3bytes (timestamp + 23 data) * 4 (32-bit ints)
+  	  for(int i = 0; i < data_to_read; i += 92) { // Process each set of 23 bytes (timestamp + 23 data) * 4 (32-bit ints)
 		    for(int j = 0; j < 23; j++) { // Split each set of 23 bytes into a sub-array for processing
 			    data_subset[j] = readBuf.getInt(4 + (i + j) * 4); // (i + j) * 4 = position in  buffer + 4 to skip timestamp
         }
         
         // Calculate checksum
-        int calc_checksum = 0; // Starting word
+        int calc_checksum = 0;
         for(int k = 2; k < 20; k++ ) { // Cycle through STATUS, XYZ GYRO, XYZ ACCEL, TEMP, COUNTER (Ignore DUT Checksum)
           calc_checksum += data_subset[k];
         }
 
-        // This is the data needed for CRC
+        // This is the data needed for Checksum
         ByteBuffer bBuf = ByteBuffer.allocateDirect(2);
-        bBuf.put((byte)readBuf.getInt((i + 20) * 4 + 4)); // (i + 20) * 4 = position (32-bit ints) + 4 to skip timestamp
-        bBuf.put((byte)readBuf.getInt((i + 21) * 4 + 4)); // (i + 21) * 4 = position (32-bit ints) + 4 to skip timestamp
-        
-        imu_checksum = ToUShort(bBuf); // Extract DUT CRC from data
-        //System.out.println("IMU: " + imu_crc);
-        //System.out.println("------------");
-        
-        System.out.println("IMU Checksum: " + imu_checksum);
+        bBuf.put((byte)readBuf.getInt((i + 20) * 4 + 4)); 
+        bBuf.put((byte)readBuf.getInt((i + 21) * 4 + 4));
+        //System.out.println(data_subset[20] + "," + data_subset[21]);
+        imu_checksum = ToUShort(bBuf);
+
+        //System.out.println("IMU Checksum: " + imu_checksum);
 
         // Compare calculated vs read CRC. Don't update outputs if CRC-16 is bad
         if(calc_checksum == imu_checksum) {
@@ -412,8 +412,6 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
           dt = (timestamp_new - timestamp_old)/1000000.0; // Calculate dt and convert us to seconds
           timestamp_old = timestamp_new; // Store new timestamp in old variable for next cycle
 
-          System.out.println("dt: " + dt);
-
           gyro_x = ToShort(data_subset[4], data_subset[5]) * kDegreePerSecondPerLSB;
           gyro_y = ToShort(data_subset[6], data_subset[7]) * kDegreePerSecondPerLSB;
           gyro_z = ToShort(data_subset[8], data_subset[9]) * kDegreePerSecondPerLSB;
@@ -421,7 +419,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
           accel_y = ToShort(data_subset[12], data_subset[13]) * kGPerLSB;
           accel_z = ToShort(data_subset[14], data_subset[15]) * kGPerLSB;
           temp = ToShort(data_subset[16], data_subset[17]) * kDegCPerLSB + kDegCOffset;
-          status = ToUShort(data_subset[2]);
+          status = ToUShort(data_subset[2], data_subset[3]);
           counter = ToUShort(data_subset[18], data_subset[19]);        
 
           // Update global state
