@@ -11,7 +11,7 @@ Online and offline installations will set up the ADIS16470 library for use in an
 - Paste the following link: [http://maven.highcurrent.io/vendordeps/ADIS16470.json](http://maven.highcurrent.io/vendordeps/ADIS16470.json)
 
 ### Offline Install
-- Download the latest release zip from the [releases](https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases) page on Github. The zip will be named `adis16470_roborio-[releaseversion].zip`.
+- Download the latest release zip from the [releases](https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases) page in this GitHub repository. The zip will be named `adis16470_roborio-[releaseversion].zip`.
 - Close all instances of FRC Visual Studio Code
 - If using Windows, extract the zip you downloaded to `C:\Users\Public\frc2019`. If using Linux or Mac, extract the zip to `~/home/frc2019/`.
 - Open FRC Visual Studio Code
