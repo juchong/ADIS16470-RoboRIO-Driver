@@ -1,0 +1,8 @@
+- Update the version number in the root build.gradle (libraryVersion property)
+- Run gradlew publish
+    - Generate a JSON with the correct version (based on the template)
+    - This will build the java and c++ versionss
+    - Generate maven artifacts for both
+    - Create a release zip of the json and maven artifacts
+
+Copy the contents of the zip to the maven repo (maven.highcurrent.io)
