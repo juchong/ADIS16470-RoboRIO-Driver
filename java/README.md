@@ -1,22 +1,24 @@
 # Java Instructions
 
 ## Install
+Online and offline installations will set up the ADIS16470 library for use in any Java robot project, but the online installation will automatically update the software if a new version is released. See the bullets below for instructions on setting the driver up in your environment. Both installation methods assume you've installed FRC Visual Studio Code. 
+
 ### Online Install
-- Open Visual Studio Code
+- Open FRC Visual Studio Code
 - Click the WPILib command pallete icon
-- Select Manage Vendor Libraries
-- Choose Install new libraries (online)
+- Select "Manage Vendor Libraries" in the menu
+- Choose "Install New Libraries (Online)"
 - Paste the following link: [http://maven.highcurrent.io/vendordeps/ADIS16470.json](http://maven.highcurrent.io/vendordeps/ADIS16470.json)
 
 ### Offline Install
-- Download the latest release zip from the [releases](https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases) page on Github. The zip will be named `adis16470_roborio-[releaseversion].zip`.
-- Extract this zip to `~/home/frc2019/` (on windows `~/home` is `C:\Users\Public` so extract it to `C:\Users\Public\frc2019`).
-- If Visual Studio code is open close the current folder (File > Close Folder) the exit Visual Studio Code.
-- Open Visual Studio Code
-- Click the SPILb command pallete icon
-- Select Manage Vendor Libraries
-- Choose Install new libraries (offline)
-- Check ADIS16470 the click OK.
+- Download the latest release zip from the [releases](https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases) page in this GitHub repository. The zip will be named `adis16470_roborio-[releaseversion].zip`.
+- Close all instances of FRC Visual Studio Code
+- If using Windows, extract the zip you downloaded to `C:\Users\Public\frc2019`. If using Linux or Mac, extract the zip to `~/home/frc2019/`.
+- Open FRC Visual Studio Code
+- Click the WPILib command pallete icon
+- Select "Manage Vendor Libraries" in the menu
+- Choose "Install New Libraries (Offline)"
+- Check ADIS16470, then click "OK".
 
 ## Usage
 Make a new instance of the driver, and use it however you like. For example:
