@@ -1,9 +1,24 @@
 # C++ Instructions
 
 ## Install
-These steps assume you already have a working WPILib based C++ project working. If you are starting from scratch, see the [WPILib instructions](https://wpilib.screenstepslive.com/s/currentCS/m/cpp)
-* Copy `ADIS16470_IMU.cpp` and `ADIS16470_IMU.h` into your _src/main/cpp/_ folder
-* Change `includeSrcInIncludeRoot` within `build_grade` to `true`
+Online and offline installations will set up the ADIS16470 library for use in any C++ robot project, but the online installation will automatically update the software if a new version is released. See the bullets below for instructions on setting the driver up in your environment. Both installation methods assume you've installed FRC Visual Studio Code. 
+
+### Online Install
+- Open FRC Visual Studio Code
+- Click the WPILib command pallete icon
+- Select "Manage Vendor Libraries" in the menu
+- Choose "Install New Libraries (Online)"
+- Paste the following link: [http://maven.highcurrent.io/vendordeps/ADIS16470.json](http://maven.highcurrent.io/vendordeps/ADIS16470.json)
+
+### Offline Install
+- Download the latest release zip from the [releases](https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases) page in this GitHub repository. The zip will be named `adis16470_roborio-[releaseversion].zip`.
+- Close all instances of FRC Visual Studio Code
+- If using Windows, extract the zip you downloaded to `C:\Users\Public\frc2019`. If using Linux or Mac, extract the zip to `~/home/frc2019/`.
+- Open FRC Visual Studio Code
+- Click the WPILib command pallete icon
+- Select "Manage Vendor Libraries" in the menu
+- Choose "Install New Libraries (Offline)"
+- Check ADIS16470, then click "OK".
 
 ## Usage
 Make a new instance of the driver, and use it however you like. For example:

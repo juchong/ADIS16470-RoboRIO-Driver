@@ -15,7 +15,7 @@
 #include <frc/DigitalSource.h>
 #include <frc/DriverStation.h>
 #include <frc/ErrorBase.h>
-#include <ADIS16470_IMU.h>
+#include <adi/ADIS16470_IMU.h>
 #include <frc/smartdashboard/SendableBuilder.h>
 #include <frc/Timer.h>
 #include <frc/WPIErrors.h>

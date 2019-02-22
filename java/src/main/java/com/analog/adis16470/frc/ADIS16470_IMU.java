@@ -174,7 +174,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
 
   /**
    * @param yaw_axis Which axis is Yaw
-   * @param algorithm Use {@link #calculateComplementary} or {@link #calculateMadgwick} algorithm
+   * @param port SPI port to use
    */
   public ADIS16470_IMU(Axis yaw_axis, SPI.Port port) {
     m_yaw_axis = yaw_axis;
