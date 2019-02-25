@@ -114,8 +114,8 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
   // Let the user know the IMU was initiallized successfully
   DriverStation::ReportWarning("ADIS16470 IMU Successfully Initialized!");
 
-  // Drive "Ready" LED high
-  auto *m_status_led = new DigitalOutput(28);  // Set SPI CS3 (IMU Ready LED) high
+  // Drive "Ready" LED low
+  auto *m_status_led = new DigitalOutput(28);  // Set SPI CS3 (IMU Ready LED) low
 
   // Report usage and post data to DS
   HAL_Report(HALUsageReporting::kResourceType_ADIS16470, 0);

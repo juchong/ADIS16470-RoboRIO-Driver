@@ -87,6 +87,9 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
 
   private SPI m_spi;
   private DigitalInput m_interrupt;
+  private DigitalOutput m_reset_out;
+  private DigitalInput m_reset_in;
+  private DigitalOutput m_status_led;
 
   // Sample from the IMU
   private static class Sample {
@@ -178,9 +181,16 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
    */
   public ADIS16470_IMU(Axis yaw_axis, SPI.Port port) {
     m_yaw_axis = yaw_axis;
-
-    //TODO: DIO based reset
-    Timer.delay(0.5);
+    
+    // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
+    // Relies on the RIO hardware by default configuring an output as low
+    // and configuring an input as high Z. The 10k pull-up resistor internal to the 
+    // IMU then forces the reset line high for normal operation. 
+    m_reset_out = new DigitalOutput(27);  // Drive SPI CS2 (IMU RST) low
+    Timer.delay(0.01);  // Wait 10ms
+    m_reset_out.free();
+    m_reset_in = new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
+    Timer.delay(0.5); // Wait 500ms for reset to complete
 
     m_spi = new SPI(port);
     m_spi.setClockRate(1000000);
@@ -248,9 +258,12 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
     // Let the user know the IMU was initiallized successfully
     DriverStation.reportWarning("ADIS16470 IMU Successfully Initialized!", false);
 
+    // Drive "Ready" LED low
+    m_status_led = new DigitalOutput(28); // Set SPI CS3 (IMU Ready LED) low
+
     // Report usage and post data to DS
     HAL.report(tResourceType.kResourceType_ADIS16470, 0);
-    setName("ADIS16470");
+    setName("ADIS16470", 0);
   }
 
   /**
@@ -386,8 +399,9 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
   	  data_to_read = data_count - array_offset; // Discard "extra" data
       m_spi.readAutoReceivedData(readBuf,data_to_read,0); // Read data from DMA buffer
   	  for(int i = 0; i < data_to_read; i += 92) { // Process each set of 23 bytes (timestamp + 23 data) * 4 (32-bit ints)
-		    for(int j = 0; j < 23; j++) { // Split each set of 23 bytes into a sub-array for processing
-			    data_subset[j] = readBuf.getInt(4 + (i + j) * 4); // (i + j) * 4 = position in  buffer + 4 to skip timestamp
+		    for(int j = 1; j < 24; j++) { // Split each set of 23 bytes into a sub-array for processing
+          int at = (i + 4 * (j));
+          data_subset[j - 1] = readBuf.getInt(at);
         }
         
         // Calculate checksum
@@ -398,8 +412,8 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
 
         // This is the data needed for Checksum
         ByteBuffer bBuf = ByteBuffer.allocateDirect(2);
-        bBuf.put((byte)readBuf.getInt((i + 20) * 4 + 4)); 
-        bBuf.put((byte)readBuf.getInt((i + 21) * 4 + 4));
+        bBuf.put((byte)data_subset[20]); 
+        bBuf.put((byte)data_subset[21]);
         //System.out.println(data_subset[20] + "," + data_subset[21]);
         imu_checksum = ToUShort(bBuf);
 
