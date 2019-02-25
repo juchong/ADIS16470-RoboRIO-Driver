@@ -6,7 +6,7 @@
     "mavenUrls": [
         "http://maven.highcurrent.io/maven"
     ],
-    "jsonUrl": "http://maven.highcurrent.io/vendordeps/ADIS16448.json",
+    "jsonUrl": "http://maven.highcurrent.io/vendordeps/ADIS16470.json",
     "javaDependencies": [
         {
             "groupId": "com.github.juchong",

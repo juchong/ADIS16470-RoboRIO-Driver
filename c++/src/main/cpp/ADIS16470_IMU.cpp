@@ -52,6 +52,16 @@ ADIS16470_IMU::ADIS16470_IMU() : ADIS16470_IMU(kZ, SPI::Port::kOnboardCS0) {}
 
 ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_axis), m_spi(port) {
 
+  // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
+  // Relies on the RIO hardware by default configuring an output as low
+  // and configuring an input as high Z. The 10k pull-up resistor internal to the 
+  // IMU then forces the reset line high for normal operation. 
+  DigitalOutput *m_reset_out = new DigitalOutput(27);  // Drive SPI CS2 (IMU RST) low
+  Wait(0.01);  // Wait 10ms
+  delete m_reset_out;
+  DigitalInput *m_reset_in = new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
+  Wait(0.5); // Wait 500ms for reset to complete
+
   // Set general SPI settings
   m_spi.SetClockRate(1000000);
   m_spi.SetMSBFirst();
@@ -103,6 +113,9 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
   
   // Let the user know the IMU was initiallized successfully
   DriverStation::ReportWarning("ADIS16470 IMU Successfully Initialized!");
+
+  // Drive "Ready" LED high
+  auto *m_status_led = new DigitalOutput(28);  // Set SPI CS3 (IMU Ready LED) high
 
   // Report usage and post data to DS
   HAL_Report(HALUsageReporting::kResourceType_ADIS16470, 0);
@@ -189,9 +202,10 @@ void ADIS16470_IMU::Acquire() {
       std::cout << buffer[m] << ",";
     }
     std::cout << " " << std::endl;
-    std::cout << "End" << std::endl; */
-
-	  for (int i = 0; i < data_to_read; i += 23) { // Process each set of 22 bytes + timestamp (23 total)
+    std::cout << "End" << std::endl; 
+    std::cout << "Reading " << data_count << " bytes." << std::endl;
+	  */
+    for (int i = 0; i < data_to_read; i += 23) { // Process each set of 22 bytes + timestamp (23 total)
 
 		  for (int j = 1; j < 23; j++) { 
 			  data_subset[j - 1] = buffer[i + j];  // Split each set of 22 bytes into a sub-array for processing
