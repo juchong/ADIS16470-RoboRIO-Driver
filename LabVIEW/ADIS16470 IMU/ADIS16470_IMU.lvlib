@@ -9,7 +9,6 @@
 </Property>
 	<Item Name="Private" Type="Folder">
 		<Item Name="ADI_IMU_ADIS16470_Checksum.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Checksum.vi"/>
-		<Item Name="ADI_IMU_ADIS16470_Data-Address to SPI.vi" Type="VI" URL="../ADI_IMU_ADIS16470_Data-Address to SPI.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_FGV.vi" Type="VI" URL="../ADI_IMU_ADIS16470_FGV.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_GetSetRefNum.vi" Type="VI" URL="../ADI_IMU_ADIS16470_GetSetRefNum.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_HardwareResetDelay.vi" Type="VI" URL="../ADI_IMU_ADIS16470_HardwareResetDelay.vi"/>
@@ -18,7 +17,8 @@
 		<Item Name="ADI_IMU_ADIS16470_Registers.ctl" Type="VI" URL="../ADI_IMU_ADIS16470_Registers.ctl"/>
 		<Item Name="ADI_IMU_ADIS16470_ScaleData.vi" Type="VI" URL="../ADI_IMU_ADIS16470_ScaleData.vi"/>
 		<Item Name="ADI_IMU_ADIS16470_SPIDelay.vi" Type="VI" URL="../ADI_IMU_ADIS16470_SPIDelay.vi"/>
-		<Item Name="ADI_IMU_ADIS16470_WriteRegister.vi" Type="VI" URL="../ADI_IMU_ADIS16470_WriteRegister.vi"/>
+		<Item Name="ADIS16470 Encode Address.vi" Type="VI" URL="../../ADIS16470Lib/SubVI/ADIS16470 Encode Address.vi"/>
+		<Item Name="ADIS16470 Write Register.vi" Type="VI" URL="../../ADIS16470Lib/SubVI/ADIS16470 Write Register.vi"/>
 	</Item>
 	<Item Name="Public" Type="Folder">
 		<Property Name="NI.LibItem.Scope" Type="Int">1</Property>
