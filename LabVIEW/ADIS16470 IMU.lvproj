@@ -447,6 +447,8 @@ AddOutputFilter chunkFilter
 				<Item Name="spilib_setspeed.vi" Type="VI" URL="/&lt;vilib&gt;/Rock Robotics/SystemInterfaces/spilib/spilib_setspeed.vi"/>
 				<Item Name="spilib_writeread.vi" Type="VI" URL="/&lt;vilib&gt;/Rock Robotics/SystemInterfaces/spilib/spilib_writeread.vi"/>
 				<Item Name="System Exec.vi" Type="VI" URL="/&lt;vilib&gt;/Platform/system.llb/System Exec.vi"/>
+				<Item Name="TraceTool Start Trace.vi" Type="VI" URL="/&lt;vilib&gt;/tracetool.llb/TraceTool Start Trace.vi"/>
+				<Item Name="TraceTool Stop Trace And Send.vi" Type="VI" URL="/&lt;vilib&gt;/tracetool.llb/TraceTool Stop Trace And Send.vi"/>
 				<Item Name="Trim Whitespace.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/error.llb/Trim Whitespace.vi"/>
 				<Item Name="Validate Semaphore Size.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/semaphor.llb/Validate Semaphore Size.vi"/>
 				<Item Name="whitespace.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/error.llb/whitespace.ctl"/>
@@ -507,6 +509,7 @@ AddOutputFilter chunkFilter
 				<Item Name="WPI_UtilitiesTimebaseConstants.vi" Type="VI" URL="/&lt;vilib&gt;/Rock Robotics/WPI/Utilities/WPI_UtilitiesTimebaseConstants.vi"/>
 			</Item>
 			<Item Name="ADIS16470 Accelerometer Angle Cal.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Accelerometer Angle Cal.vi"/>
+			<Item Name="ADIS16470 Command Type.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Command Type.ctl"/>
 			<Item Name="ADIS16470 Data.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Data.ctl"/>
 			<Item Name="ADIS16470 Device Reference.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Device Reference.ctl"/>
 			<Item Name="ADIS16470 Encode Address.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Encode Address.vi"/>
@@ -520,6 +523,7 @@ AddOutputFilter chunkFilter
 			<Item Name="ADIS16470 Read Register.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Read Register.vi"/>
 			<Item Name="ADIS16470 Read.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Read.vi"/>
 			<Item Name="ADIS16470 Register.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Register.ctl"/>
+			<Item Name="ADIS16470 Reset.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Reset.vi"/>
 			<Item Name="ADIS16470 Status.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Status.ctl"/>
 			<Item Name="ADIS16470 Status.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Status.vi"/>
 			<Item Name="ADIS16470 Write Register.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Write Register.vi"/>
@@ -530,6 +534,9 @@ AddOutputFilter chunkFilter
 				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
 			</Item>
 			<Item Name="libsystem_kernel.dylib" Type="Document" URL="/usr/lib/system/libsystem_kernel.dylib"/>
+			<Item Name="lvalarms.dll" Type="Document" URL="lvalarms.dll">
+				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
+			</Item>
 			<Item Name="NiFpgaLv.dll" Type="Document" URL="NiFpgaLv.dll">
 				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
 			</Item>
