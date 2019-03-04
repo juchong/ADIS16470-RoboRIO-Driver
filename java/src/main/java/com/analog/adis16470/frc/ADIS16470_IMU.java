@@ -31,7 +31,7 @@ import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 
 /**
- * This class is for the ADIS16448 IMU that connects to the RoboRIO MXP port.
+ * This class is for the ADIS16470 IMU that connects to the RoboRIO SPI port.
  */
 @SuppressWarnings("unused")
 public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable {
