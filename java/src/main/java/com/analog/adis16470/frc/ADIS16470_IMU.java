@@ -188,7 +188,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
     // IMU then forces the reset line high for normal operation. 
     m_reset_out = new DigitalOutput(27);  // Drive SPI CS2 (IMU RST) low
     Timer.delay(0.01);  // Wait 10ms
-    m_reset_out.free();
+    m_reset_out.close();
     m_reset_in = new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
     Timer.delay(0.5); // Wait 500ms for reset to complete
 
@@ -352,7 +352,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
    * Delete (free) the spi port used for the IMU.
    */
   @Override
-  public void free() {
+  public void close() {
     m_freed.set(true);
     if (m_samples_mutex != null) {
       m_samples_mutex.lock();
@@ -586,6 +586,5 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
           new NetworkTableEntry(tb, counter).setDouble(getCounter());
       }
     });
-  }
-  
+  }  
 }
