@@ -1,10 +1,10 @@
 plugins {
   id 'cpp'
   id 'java'
-  id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2020.1'
-  id 'edu.wpi.first.NativeUtils' version '2020.1.5'
-  id 'edu.wpi.first.GradleJni' version '0.9.1'
-  id 'edu.wpi.first.GradleVsCode' version '0.9.6'
+  id 'edu.wpi.first.wpilib.repositories.WPILibRepositoriesPlugin' version '2020.2'
+  id 'edu.wpi.first.NativeUtils' version '2020.5.2'
+  id 'edu.wpi.first.GradleJni' version '0.10.1'
+  id 'edu.wpi.first.GradleVsCode' version '0.10.0'
   id 'google-test-test-suite'
 }
 
@@ -35,7 +35,7 @@ apply from: 'config.gradle'
 
 apply from: 'dependencies.gradle'
 
-jar.baseName = "ADIS16470_IMU"
+jar.archiveBaseName = "ADIS16470_IMU"
 
 nativeUtils {
   exportsConfigs {
@@ -60,7 +60,7 @@ model {
       }
 
 
-      nativeUtils.useRequiredLibrary(it, "wpilib_shared")
+      nativeUtils.useRequiredLibrary(it, "wpilibc_shared", "ntcore_shared", "hal_shared", "wpiutil_shared")
     }
   }
 
@@ -73,7 +73,7 @@ model {
           include '**/*.cpp'
         }
       }
-      nativeUtils.useRequiredLibrary(it, "wpilib_shared", "googletest_static")
+      nativeUtils.useRequiredLibrary(it, "wpilib_executable_shared", "googletest_static")
     }
   }
 
@@ -82,5 +82,5 @@ model {
 apply from: 'publish.gradle'
 
 wrapper {
-  gradleVersion = '5.4.1'
+  gradleVersion = '6.0.1'
 }
