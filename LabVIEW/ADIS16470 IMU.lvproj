@@ -189,8 +189,8 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="Bld_excludedDirectory[0].pathType" Type="Str">relativeToAppDir</Property>
 				<Property Name="Bld_excludedDirectory[1]" Type="Path">resource/objmgr</Property>
 				<Property Name="Bld_excludedDirectory[1].pathType" Type="Str">relativeToAppDir</Property>
-				<Property Name="Bld_excludedDirectory[2]" Type="Path">/C/ProgramData/National Instruments/InstCache/18.0</Property>
-				<Property Name="Bld_excludedDirectory[3]" Type="Path">/C/Users/Will/Documents/LabVIEW Data/2018(32-bit)/ExtraVILib</Property>
+				<Property Name="Bld_excludedDirectory[2]" Type="Path">/C/ProgramData/National Instruments/InstCache/19.0</Property>
+				<Property Name="Bld_excludedDirectory[3]" Type="Path">/C/Users/Will/Documents/LabVIEW Data/2019(32-bit)/ExtraVILib</Property>
 				<Property Name="Bld_excludedDirectory[4]" Type="Path">instr.lib</Property>
 				<Property Name="Bld_excludedDirectory[4].pathType" Type="Str">relativeToAppDir</Property>
 				<Property Name="Bld_excludedDirectory[5]" Type="Path">user.lib</Property>
@@ -199,7 +199,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="Bld_localDestDir" Type="Path">../builds/ADIS16470-IMU/ThirdParty</Property>
 				<Property Name="Bld_localDestDirType" Type="Str">relativeToProject</Property>
 				<Property Name="Bld_previewCacheID" Type="Str">{5C9CA66C-F16B-4A3B-95C3-90689364D2FE}</Property>
-				<Property Name="Bld_version.build" Type="Int">13</Property>
+				<Property Name="Bld_version.build" Type="Int">14</Property>
 				<Property Name="Bld_version.major" Type="Int">1</Property>
 				<Property Name="Destination[0].destName" Type="Str">Destination Directory</Property>
 				<Property Name="Destination[0].path" Type="Path">../builds/ADIS16470-IMU/ThirdParty</Property>
@@ -216,7 +216,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="Destination[3].path" Type="Path">../builds/ADIS16470-IMU/ThirdParty/ADI/ADIS16470/SubVI</Property>
 				<Property Name="Destination[3].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="DestinationCount" Type="Int">4</Property>
-				<Property Name="Source[0].itemID" Type="Str">{6F0911BB-F412-496A-9994-779683C43B3C}</Property>
+				<Property Name="Source[0].itemID" Type="Str">{C418BC8B-D315-433A-AB93-B16D29D6BCC7}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].Container.applyDestination" Type="Bool">true</Property>
 				<Property Name="Source[1].Container.applyInclusion" Type="Bool">true</Property>
@@ -242,12 +242,22 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="SourceCount" Type="Int">4</Property>
 			</Item>
 			<Item Name="ADIS16470 IMU Package" Type="{E661DAE2-7517-431F-AC41-30807A3BDA38}">
+				<Property Name="NIPKG_addToFeed" Type="Bool">false</Property>
+				<Property Name="NIPKG_certificates" Type="Bool">false</Property>
+				<Property Name="NIPKG_createInstaller" Type="Bool">false</Property>
+				<Property Name="NIPKG_feedLocation" Type="Path"></Property>
+				<Property Name="NIPKG_installerArtifacts" Type="Str"></Property>
+				<Property Name="NIPKG_installerBuiltBefore" Type="Bool">false</Property>
+				<Property Name="NIPKG_installerDestination" Type="Path"></Property>
+				<Property Name="NIPKG_lastBuiltPackage" Type="Str">adis16470-imu_1.0.0-7_windows_all.nipkg</Property>
 				<Property Name="NIPKG_license" Type="Ref"></Property>
 				<Property Name="NIPKG_releaseNotes" Type="Str"></Property>
+				<Property Name="NIPKG_storeProduct" Type="Bool">false</Property>
+				<Property Name="NIPKG_VisibleForRuntimeDeployment" Type="Bool">false</Property>
 				<Property Name="PKG_actions.Count" Type="Int">0</Property>
 				<Property Name="PKG_autoIncrementBuild" Type="Bool">true</Property>
 				<Property Name="PKG_autoSelectDeps" Type="Bool">false</Property>
-				<Property Name="PKG_buildNumber" Type="Int">7</Property>
+				<Property Name="PKG_buildNumber" Type="Int">8</Property>
 				<Property Name="PKG_buildSpecName" Type="Str">ADIS16470 IMU Package</Property>
 				<Property Name="PKG_dependencies.Count" Type="Int">0</Property>
 				<Property Name="PKG_description" Type="Str"></Property>
@@ -269,7 +279,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="PKG_destinations[3].Subdir.Parent" Type="Str">{67262A74-41D9-4483-A988-34439B1DBEB5}</Property>
 				<Property Name="PKG_destinations[3].Type" Type="Str">Subdir</Property>
 				<Property Name="PKG_destinations[4].ID" Type="Str">{A71B9C60-64A5-442B-80DF-0CB778A2E545}</Property>
-				<Property Name="PKG_destinations[4].Subdir.Directory" Type="Str">LabVIEW 2018</Property>
+				<Property Name="PKG_destinations[4].Subdir.Directory" Type="Str">LabVIEW 2019</Property>
 				<Property Name="PKG_destinations[4].Subdir.Parent" Type="Str">{CF9EFC3D-1C66-412E-836F-5962846B7FAF}</Property>
 				<Property Name="PKG_destinations[4].Type" Type="Str">Subdir</Property>
 				<Property Name="PKG_destinations[5].ID" Type="Str">{CF9EFC3D-1C66-412E-836F-5962846B7FAF}</Property>
@@ -278,13 +288,17 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="PKG_destinations[5].Type" Type="Str">Subdir</Property>
 				<Property Name="PKG_displayName" Type="Str">ADIS16470 IMU RoboRIO</Property>
 				<Property Name="PKG_displayVersion" Type="Str"></Property>
+				<Property Name="PKG_feedDescription" Type="Str"></Property>
+				<Property Name="PKG_feedName" Type="Str"></Property>
 				<Property Name="PKG_homepage" Type="Str">www.frc3005.com</Property>
+				<Property Name="PKG_hostname" Type="Str"></Property>
 				<Property Name="PKG_lvrteTracking" Type="Bool">false</Property>
 				<Property Name="PKG_maintainer" Type="Str">FRC 3005 &lt;&gt;</Property>
 				<Property Name="PKG_output" Type="Path">../builds/ADIS16470-Package</Property>
 				<Property Name="PKG_output.Type" Type="Str">relativeToProject</Property>
 				<Property Name="PKG_packageName" Type="Str">adis16470-imu</Property>
 				<Property Name="PKG_ProviderVersion" Type="Int">1810</Property>
+				<Property Name="PKG_publishToSystemLink" Type="Bool">false</Property>
 				<Property Name="PKG_section" Type="Str">Drivers</Property>
 				<Property Name="PKG_shortcuts.Count" Type="Int">0</Property>
 				<Property Name="PKG_sources.Count" Type="Int">1</Property>
