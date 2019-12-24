@@ -21,7 +21,7 @@ The package manager window should like like below if the library was installed s
 ## Using the Library
 The LabVIEW driver can be used like any other third-party library. All .vi's can be found in the pallet shown below:
 
-![ADIS16470 LabVIEW Pallet](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/docs/menu.JPG)
+![ADIS16470 LabVIEW Pallet](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/docs/menu.PNG)
 
 The example .vi included in this repository should look like below when successfully connected to a RoboRIO:
 
