@@ -54,12 +54,12 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
 
   // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
   // Relies on the RIO hardware by default configuring an output as low
-  // and configuring an input as high Z. The 10k pull-up resistor internal to the 
-  // IMU then forces the reset line high for normal operation. 
+  // and configuring an input as high Z. The 10k pull-up resistor internal to the
+  // IMU then forces the reset line high for normal operation.
   DigitalOutput *m_reset_out = new DigitalOutput(27);  // Drive SPI CS2 (IMU RST) low
   Wait(0.01);  // Wait 10ms
   delete m_reset_out;
-  DigitalInput *m_reset_in = new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
+  /*DigitalInput *m_reset_in = */new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
   Wait(0.5); // Wait 500ms for reset to complete
 
   // Set general SPI settings
@@ -106,16 +106,16 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
   // Execute offset calibration on start-up
   Calibrate();
 
-  Wait(0.500); 
+  Wait(0.500);
 
   // Re-initialize accumulations after calibration
   Reset();
-  
+
   // Let the user know the IMU was initiallized successfully
   DriverStation::ReportWarning("ADIS16470 IMU Successfully Initialized!");
 
   // Drive "Ready" LED low
-  auto *m_status_led = new DigitalOutput(28);  // Set SPI CS3 (IMU Ready LED) low
+  /*auto *m_status_led = */new DigitalOutput(28);  // Set SPI CS3 (IMU Ready LED) low
 
   // Report usage and post data to DS
   HAL_Report(HALUsageReporting::kResourceType_ADIS16470, 0);
@@ -188,12 +188,12 @@ void ADIS16470_IMU::Acquire() {
 
 	  // Waiting for the buffer to fill...
 	  Wait(.020); // A delay greater than 50ms could potentially overflow the local buffer (depends on sensor sample rate)
-    
+
     std::fill_n(buffer, 2000, 0);  // Clear buffer
-	  data_count = m_spi.ReadAutoReceivedData(buffer,0,0); // Read number of bytes currently stored in the buffer
+	  data_count = m_spi.ReadAutoReceivedData(buffer,0,0_s); // Read number of bytes currently stored in the buffer
 	  data_remainder = data_count % 23; // Check if frame is incomplete
     data_to_read = data_count - data_remainder;  // Remove incomplete data from read count
-	  m_spi.ReadAutoReceivedData(buffer,data_to_read,0); // Read data from DMA buffer
+	  m_spi.ReadAutoReceivedData(buffer,data_to_read,0_s); // Read data from DMA buffer
 
     /* // DEBUG: Print buffer size and contents to terminal
     std::cout << "Start - " << data_count << "," << data_remainder << "," << data_to_read << std::endl;
@@ -202,12 +202,12 @@ void ADIS16470_IMU::Acquire() {
       std::cout << buffer[m] << ",";
     }
     std::cout << " " << std::endl;
-    std::cout << "End" << std::endl; 
+    std::cout << "End" << std::endl;
     std::cout << "Reading " << data_count << " bytes." << std::endl;
 	  */
     for (int i = 0; i < data_to_read; i += 23) { // Process each set of 22 bytes + timestamp (23 total)
 
-		  for (int j = 1; j < 23; j++) { 
+		  for (int j = 1; j < 23; j++) {
 			  data_subset[j - 1] = buffer[i + j];  // Split each set of 22 bytes into a sub-array for processing
       }
 
@@ -228,7 +228,7 @@ void ADIS16470_IMU::Acquire() {
 
       // Compare calculated vs read CRC. Don't update outputs or dt if CRC-16 is bad
       if (calc_checksum == imu_checksum) {
-        
+
         // Calculate delta-time (dt) using FPGA timestamps
         timestamp_new = buffer[i];  // Extract timestamp from buffer
         dt = (timestamp_new - timestamp_old)/1000000; // Calculate dt and convert us to seconds
@@ -262,7 +262,7 @@ void ADIS16470_IMU::Acquire() {
           m_accum_gyro_x += gyro_x;
           m_accum_gyro_y += gyro_y;
           m_accum_gyro_z += gyro_z;
-          
+
           // Accumulate gyro for angle integration
           m_integ_gyro_x += (gyro_x - m_gyro_offset_x) * dt;
           m_integ_gyro_y += (gyro_y - m_gyro_offset_y) * dt;
@@ -279,23 +279,27 @@ void ADIS16470_IMU::Acquire() {
 
 double ADIS16470_IMU::GetAngle() const {
   switch (m_yaw_axis) {
-    case kX: 
+    case kX:
       return GetAngleX();
-    case kY: 
+    case kY:
       return GetAngleY();
-    case kZ: 
+    case kZ:
       return GetAngleZ();
+    default:
+      return 0.0;
   }
 }
 
 double ADIS16470_IMU::GetRate() const {
   switch (m_yaw_axis) {
-    case kX: 
+    case kX:
       return GetRateX();
-    case kY: 
+    case kY:
       return GetRateY();
-    case kZ: 
+    case kZ:
       return GetRateZ();
+    default:
+      return 0.0;
   }
 }
 
