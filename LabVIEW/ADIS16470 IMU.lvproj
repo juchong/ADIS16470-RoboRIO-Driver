@@ -531,11 +531,11 @@ AddOutputFilter chunkFilter
 				<Item Name="WPI_UtilitiesFRC SendMessageToConsole.vi" Type="VI" URL="/&lt;vilib&gt;/Rock Robotics/WPI/Utilities/WPI_UtilitiesFRC SendMessageToConsole.vi"/>
 				<Item Name="WPI_UtilitiesTimebaseConstants.vi" Type="VI" URL="/&lt;vilib&gt;/Rock Robotics/WPI/Utilities/WPI_UtilitiesTimebaseConstants.vi"/>
 			</Item>
+			<Item Name="ADIS16470 Calibration Time.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Calibration Time.ctl"/>
 			<Item Name="ADIS16470 Command Type.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Command Type.ctl"/>
 			<Item Name="ADIS16470 Data.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Data.ctl"/>
 			<Item Name="ADIS16470 Device Reference.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Device Reference.ctl"/>
 			<Item Name="ADIS16470 Encode Address.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Encode Address.vi"/>
-			<Item Name="ADIS16470 Finish Calibration.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Finish Calibration.vi"/>
 			<Item Name="ADIS16470 Hardware Configuration.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Hardware Configuration.ctl"/>
 			<Item Name="ADIS16470 Loop.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Loop.vi"/>
 			<Item Name="ADIS16470 Open.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Open.vi"/>
