@@ -199,7 +199,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="Bld_localDestDir" Type="Path">../builds/ADIS16470-IMU/ThirdParty</Property>
 				<Property Name="Bld_localDestDirType" Type="Str">relativeToProject</Property>
 				<Property Name="Bld_previewCacheID" Type="Str">{5C9CA66C-F16B-4A3B-95C3-90689364D2FE}</Property>
-				<Property Name="Bld_version.build" Type="Int">18</Property>
+				<Property Name="Bld_version.build" Type="Int">19</Property>
 				<Property Name="Bld_version.major" Type="Int">1</Property>
 				<Property Name="Destination[0].destName" Type="Str">Destination Directory</Property>
 				<Property Name="Destination[0].path" Type="Path">../builds/ADIS16470-IMU/ThirdParty</Property>
@@ -249,7 +249,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="NIPKG_installerArtifacts" Type="Str"></Property>
 				<Property Name="NIPKG_installerBuiltBefore" Type="Bool">false</Property>
 				<Property Name="NIPKG_installerDestination" Type="Path"></Property>
-				<Property Name="NIPKG_lastBuiltPackage" Type="Str">adis16470-imu_2020.0.0-4_windows_all.nipkg</Property>
+				<Property Name="NIPKG_lastBuiltPackage" Type="Str">adis16470-imu_2020.0.0-5_windows_all.nipkg</Property>
 				<Property Name="NIPKG_license" Type="Ref"></Property>
 				<Property Name="NIPKG_releaseNotes" Type="Str"></Property>
 				<Property Name="NIPKG_storeProduct" Type="Bool">false</Property>
@@ -257,7 +257,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="PKG_actions.Count" Type="Int">0</Property>
 				<Property Name="PKG_autoIncrementBuild" Type="Bool">true</Property>
 				<Property Name="PKG_autoSelectDeps" Type="Bool">false</Property>
-				<Property Name="PKG_buildNumber" Type="Int">5</Property>
+				<Property Name="PKG_buildNumber" Type="Int">6</Property>
 				<Property Name="PKG_buildSpecName" Type="Str">ADIS16470 IMU Package</Property>
 				<Property Name="PKG_dependencies.Count" Type="Int">0</Property>
 				<Property Name="PKG_description" Type="Str"></Property>
