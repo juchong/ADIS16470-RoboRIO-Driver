@@ -10,7 +10,7 @@ Once downloaded, double-click on the `.nipkg` file. The pre-installed NI Package
 
 ![ADIS16470 .nipkg Icon](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/docs/nipkg_icon.PNG)
 
-Once you double-click on the installer file, the NI Package Manager will walk you through installing the library. Click `Next` at the window shown below to install the library. 
+Once you double-click on the installer file, the NI Package Manager will walk you through installing the library. Click `Next` at the window shown below to install the library. *Note: The library version shown in the screenshots on this page may be different than the latest version available on the GitHub page!*
 
 ![ADIS16470 Installing Window](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/docs/installing.PNG)
 
