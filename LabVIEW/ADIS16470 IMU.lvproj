@@ -543,6 +543,7 @@ AddOutputFilter chunkFilter
 			<Item Name="ADIS16470 Read Multiple Registers.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Read Multiple Registers.vi"/>
 			<Item Name="ADIS16470 Read Register.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Read Register.vi"/>
 			<Item Name="ADIS16470 Read.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Read.vi"/>
+			<Item Name="ADIS16470 Recalibrate.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Recalibrate.vi"/>
 			<Item Name="ADIS16470 Register.ctl" Type="VI" URL="../ADIS16470Lib/Typedef/ADIS16470 Register.ctl"/>
 			<Item Name="ADIS16470 Reset.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Reset.vi"/>
 			<Item Name="ADIS16470 Scale Data.vi" Type="VI" URL="../ADIS16470Lib/SubVI/ADIS16470 Scale Data.vi"/>

@@ -1,7 +1,7 @@
 {
     "fileName": "ADIS16470.json",
     "name": "ADIS16470-IMU",
-    "version": __VERSION_HERE__,
+    "version": "2020.b4.1",
     "uuid": "6606dc7e-fb96-436f-a804-c07a5d841a14",
     "mavenUrls": [
         "http://maven.highcurrent.io/maven"
@@ -11,7 +11,7 @@
         {
             "groupId": "com.github.juchong",
             "artifactId": "adis16470-java",
-            "version": __VERSION_HERE__
+            "version": "2020.b4.1"
         }
     ],
     "jniDependencies": [],
@@ -19,7 +19,7 @@
         {
             "groupId": "com.github.juchong",
             "artifactId": "adis16470-cpp",
-            "version": __VERSION_HERE__,
+            "version": "2020.b4.1",
             "libName": "libadis16470imu",
             "headerClassifier": "headers",
             "sharedLibrary": false,
