@@ -1,33 +1,31 @@
-## ***FRC TEAMS, BE AWARE THAT THE 2019 KICKOFF RELEASE IMAGE (v12) BREAKS COMPATIBILITY WITH ADI GYROS and IMUs! NI HAS RELEASED AN UPDATE SUITE (2019.1.0) ALONG WITH A NEW ROBORIO IMAGE (v13) THAT FIXES THE ISSUE. THE UPDATED INSTALLER CAN BE FOUND [HERE](http://www.ni.com/download/first-robotics-software-2017/7904/en/).***
-
-# ADIS16470 IMU Library for FIRST Robotics and the RoboRIO
+# ADIS16470 IMU Interface Libraries for FIRST Robotics
 
 ## Introduction
-This example library was written to give mentors, students, and engineers a starting point for using a very high-performance 6 Degree-of-Freedom (DoF), calibrated Inertial Measurement Unit (IMU). This sensor packages multiple gyroscopes and accelerometers in a tiny, robust package perfect for high-performance robotics (such as FRC). 
+These libraries allow mentors, students, and engineers to quickly get started using the ADIS16470 Inertial Measurement Unit (IMU). This compact module provides teams with a high-performance, six-degree-of-freedom (DoF), calibrated, feedback for their FRC robots. The module packages several gyroscopes and accelerometers in a tiny, robust package, perfect for high-performance robotics (such as FRC). 
 
-These software libraries provide the user (you) with:
-- Raw sensor outputs - X-Y-Z Gyroscope and Accelerometer
-- X-Y-Z gyroscope angles calculated using loop integration
-- Offset compensation calculated at runtime
+<img src="https://wiki.analog.com/_media/first/adis16470_spi_board-cropped.jpg" alt="ADIS16470 Breakout Board for FRC" style="zoom:30%;" />
+
+To simplify the library as much as possible for the 2020 season, only a few, key IMU features are exposed to the user by default. 
+- X, Y, and Z (Pitch, Roll, and Yaw) Integrated Gyroscope Outputs
+  - Registers read from the IMU can easily be customized for each application.
+- IMU register reads and writes using discrete SPI transactions and the Auto SPI peripheral built into the FRC 2020 RoboRIO image
+- IMU status, integration resetting, and recalibration routines
 
 Tutorial videos, how-to guides, and additional resources can be found on the [ADI FIRST Robotics Wiki Page](https://wiki.analog.com/first/first_robotics_donation_resources).
 
-## Why isn't your example code working?
-A bug was introduced in the 2019 kickoff RoboRIO image which broke "Auto SPI." All ADI sensors currently offered to FRC teams rely on this feature to synchronously capture IMU data and feed it to the Zynq CPU for processing. The source of the bug was traced back to a RoboRIO image packaging issue and could be temporarily resolved on a v12 image by connecting to the serial/SSH terminal on the RoboRIO and executing the command "updateNIDrivers". This command forces the RoboRIO to re-compile the affected kernel module and fully resolves the issue. As of 01/17/2019, NI has released an updated [installer](http://www.ni.com/download/first-robotics-software-2017/7904/en/) (2019.1.0) that includes a pre-patched RoboRIO image (v13).
-
 ## What programming languages are supported?
 
-The IMU driver currently supports all three official FRC languages (C++, Java, and LabVIEW). Raw sensor rate outputs and accumulated sensor outputs are supported for all languages. 
+The IMU driver currently supports all three official FRC languages (C++, Java, and LabVIEW). LabVIEW libraries should be installed using the NI Package Manager.  C++ and Java libraries should be installed using maven.
 
 ## What do I need to get started?
 
-To use the software, you need access to a RoboRIO and the ADIS16470 RoboRIO Breakout Board. This software is based on the FRC 2019 software distribution and relies on the WPILib libraries to interface with the IMU. Previous (pre-2019) versions of LabVIEW and WPILib libraries are **not** supported. 
+To use the software, you need access to a RoboRIO and the ADIS16470 RoboRIO Breakout Board. This software is based on the FRC 2020 software distribution and relies on the latest WPILib libraries and RoboRIO image to interface with the IMU. Previous (pre-2020) versions of LabVIEW and WPILib libraries are **not** supported. 
 
-Plug in the expansion board as shown below. **Be careful not to offset the connector!!** If installed correctly, the Power LED should turn on once the RoboRIO is powered on.
+Plug in the expansion board as shown below. **Be careful not to offset the connector!!** If installed correctly, the Power LED should turn on once the RoboRIO is powered on. The Status LED will only light up once the IMU has successfully communicated with the RoboRIO.
 
-Your RoboRIO should be imaged to match the version of the NI Update Suite installed on your PC. For example, if you have the latest (of this writing) update suite installed (2019.0.0), then you must also have the **FRC_roboRIO_2019_v12** image and **roboRIO_6.0.0** firmware installed. This driver relies heavily on the FPGA image loaded in the RoboRIO and _**will not work**_ on older versions. The most current NI Update Suite can be found [here](https://forums.ni.com/t5/FIRST-Robotics-Competition/FRC-Update-Suite/ta-p/3737502).
+**Your RoboRIO should be imaged to match the version of the NI Update Suite installed on your PC.** For example, if you have the latest (of this writing) update suite installed (2020.0.0), then you must also have the **FRC_roboRIO_2012_v12** image and **roboRIO_6.0.0** firmware installed. This driver relies heavily on the FPGA image loaded in the RoboRIO and _**will not work**_ on older versions. The most current NI Update Suite can be found [here](https://www.ni.com/en-us/support/downloads/drivers/download.frc-game-tools.html#333285).
 
-![ADIS16470 Breakout Board Installed on a RoboRIO](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/Reference/RioSensorBoard.jpg)
+![ADIS16470 Breakout Board Installed on a RoboRIO](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/docs/RioSensorBoard.jpg)
 
 ## How do I use the IMU with my programming language?
 
@@ -35,5 +33,5 @@ Click on the language you're looking to use above. Each folder includes instruct
 
 ## Can I order my own PCB? Where can I find the schematic?
 
-The schematic, layout, and manufacturing files can be found in this repository under `Reference/PCB Reference Files/`. 
+The schematic, layout, and manufacturing files can be found in this repository under `docs/PCB Reference Files/`. 
 Copies of this board may be purchased from OSH Park using this [link](https://oshpark.com/shared_projects/Ah67Qbv9). 
