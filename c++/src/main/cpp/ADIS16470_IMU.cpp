@@ -21,7 +21,7 @@
 #include <frc/WPIErrors.h>
 #include <hal/HAL.h>
 
-static constexpr double kCalibrationSampleTime = 5.0; // Calibration time in seconds (regardless of sps)
+
 static constexpr double kDegreePerSecondPerLSB = 1.0/10.0;
 static constexpr double kGPerLSB = 1.0/800.0;
 static constexpr double kDegCPerLSB = 1.0/10.0;
@@ -31,6 +31,7 @@ static constexpr uint8_t kGLOB_CMD = 0x68;
 static constexpr uint8_t kRegDEC_RATE = 0x64;
 static constexpr uint8_t kRegFILT_CTRL = 0x5C;
 static constexpr uint8_t kRegMSC_CTRL = 0x60;
+static constexpr uint8_t kRegNULL_CNFG = 0x66;
 static constexpr uint8_t kRegPROD_ID = 0x72;
 
 double timestamp_old = 0;
@@ -48,9 +49,12 @@ using namespace frc;
 /**
  * Constructor.
  */
-ADIS16470_IMU::ADIS16470_IMU() : ADIS16470_IMU(kZ, SPI::Port::kOnboardCS0) {}
+ADIS16470_IMU::ADIS16470_IMU() : ADIS16470_IMU(kZ, SPI::Port::kOnboardCS0, ADIS16470CalibrationTime::_4s) {}
 
-ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_axis), m_spi(port) {
+ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470CalibrationTime cal_time) : 
+                m_yaw_axis(yaw_axis), 
+                m_spi_port(port),
+                m_calibration_time((uint16_t)cal_time) {
 
   // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
   // Relies on the RIO hardware by default configuring an output as low
@@ -62,51 +66,27 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
   /*DigitalInput *m_reset_in = */new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
   Wait(0.5); // Wait 500ms for reset to complete
 
-  // Set general SPI settings
-  m_spi.SetClockRate(1000000);
-  m_spi.SetMSBFirst();
-  m_spi.SetSampleDataOnTrailingEdge();
-  m_spi.SetClockActiveLow();
-  m_spi.SetChipSelectActiveLow();
-
-  ReadRegister(kRegPROD_ID); // Dummy read
-
-  // Validate the product ID
-  if (ReadRegister(kRegPROD_ID) != 16982) {
-    DriverStation::ReportError("Could not find ADIS16470!");
+  // Do this for configuration
+  if(!SwitchToStandardSPI()){
     return;
   }
-  else {
-    DriverStation::ReportError("ADIS16470 IMU Detected. Starting calibration.");
-  }
 
-  // Set IMU internal decimation to 200 SPS
-  WriteRegister(kRegDEC_RATE, 0x0009);
-
+  // Set IMU internal decimation to 400 SPS
+  WriteRegister(kRegDEC_RATE, 0x0004);
   // Enable Data Ready (LOW = Good Data), gSense Compensation, PoP
   WriteRegister(kRegMSC_CTRL, 0x00C1);
-
   // Configure IMU internal Bartlett filter
   WriteRegister(kRegFILT_CTRL, 0x0000);
+  // Configure calibration time
+  WriteRegister(kRegNULL_CNFG, m_calibration_time | 0x700);
 
-  // Configure interrupt on SPI CS1
-  DigitalInput *m_interrupt = new DigitalInput(26);
+  // Wait for samples to accumulate (110% of required time)
+  Wait(pow(2, m_calibration_time) / 2000 * 64 * 1.1);
 
-  // Configure DMA SPI
-  m_spi.InitAuto(8200);
-  m_spi.SetAutoTransmitData(kGLOB_CMD,21);
-
-  // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
-  m_spi.StartAutoTrigger(*m_interrupt,true,false);
-
-  // Start acquisition and calculation threads
+  // Start acquisition
+  SwitchToAutoSPI();
   m_freed = false;
   m_acquire_task = std::thread(&ADIS16470_IMU::Acquire, this);
-
-  // Execute offset calibration on start-up
-  Calibrate();
-
-  Wait(0.500);
 
   // Re-initialize accumulations after calibration
   Reset();
@@ -122,22 +102,69 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
   SetName("ADIS16470", 0);
 }
 
-void ADIS16470_IMU::Calibrate() {
-  {
-    std::lock_guard<wpi::mutex> sync(m_mutex);
-    m_accum_count = 0;
-    m_accum_gyro_x = 0.0;
-    m_accum_gyro_y = 0.0;
-    m_accum_gyro_z = 0.0;
+bool ADIS16470_IMU::SwitchToStandardSPI(){
+
+  if (m_spi != nullptr)
+    delete m_spi;
+
+  // Set general SPI settings
+  m_spi = new SPI(m_spi_port);
+  m_spi->SetClockRate(1000000);
+  m_spi->SetMSBFirst();
+  m_spi->SetSampleDataOnTrailingEdge();
+  m_spi->SetClockActiveLow();
+  m_spi->SetChipSelectActiveLow();
+
+  ReadRegister(kRegPROD_ID); // Dummy read
+
+  // Validate the product ID
+  uint16_t prod_id = ReadRegister(kRegPROD_ID);
+  if (prod_id != 16982 && prod_id != 16470) {
+    DriverStation::ReportError("Could not find ADIS16470!");
+    return false;
+  }
+  DriverStation::ReportWarning("ADIS16470 IMU Detected. Starting calibration.");
+  return true;
+}
+
+bool ADIS16470_IMU::SwitchToAutoSPI(){
+
+  // Initialize standard SPI first
+  if(m_spi == nullptr){
+    if(!SwitchToStandardSPI()){
+      return false;
+    }
   }
 
-  Wait(kCalibrationSampleTime);
-  {
-    std::lock_guard<wpi::mutex> sync(m_mutex);
-    m_gyro_offset_x = m_accum_gyro_x / m_accum_count;
-    m_gyro_offset_y = m_accum_gyro_y / m_accum_count;
-    m_gyro_offset_z = m_accum_gyro_z / m_accum_count;
-  }
+  // Configure interrupt on SPI CS1
+  m_auto_interrupt = new DigitalInput(26);
+
+  // Configure DMA SPI
+  m_spi->InitAuto(8200);
+  m_spi->SetAutoTransmitData(kGLOB_CMD, 21);
+  m_spi->ConfigureAutoStall(static_cast<HAL_SPIPort>(m_spi_port), 5, 1000, 1);
+
+  // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
+  m_spi->StartAutoTrigger(*m_auto_interrupt, true, false);
+
+  return true;
+}
+
+bool ADIS16470_IMU::Reconfigure(ADIS16470CalibrationTime new_cal_time) { 
+  if(!SwitchToStandardSPI())
+    return false;
+  m_calibration_time = (uint16_t)new_cal_time;
+  WriteRegister(kRegNULL_CNFG, m_calibration_time | 0x700);
+  SwitchToAutoSPI();
+  return true;
+}
+
+bool ADIS16470_IMU::Recalibrate() {
+  if(!SwitchToStandardSPI())
+    return false;
+  WriteRegister(kGLOB_CMD, 0x0001);
+  SwitchToAutoSPI();
+  return true;
 }
 
 uint16_t ADIS16470_IMU::ReadRegister(uint8_t reg) {
@@ -145,8 +172,8 @@ uint16_t ADIS16470_IMU::ReadRegister(uint8_t reg) {
   buf[0] = reg & 0x7f;
   buf[1] = 0;
 
-  m_spi.Write(buf, 2);
-  m_spi.Read(false, buf, 2);
+  m_spi->Write(buf, 2);
+  m_spi->Read(false, buf, 2);
 
   return ToUShort(buf);
 }
@@ -155,10 +182,10 @@ void ADIS16470_IMU::WriteRegister(uint8_t reg, uint16_t val) {
   uint8_t buf[2];
   buf[0] = 0x80 | reg;
   buf[1] = val & 0xff;
-  m_spi.Write(buf, 2);
+  m_spi->Write(buf, 2);
   buf[0] = 0x81 | reg;
   buf[1] = val >> 8;
-  m_spi.Write(buf, 2);
+  m_spi->Write(buf, 2);
 }
 
 void ADIS16470_IMU::Reset() {
@@ -169,7 +196,7 @@ void ADIS16470_IMU::Reset() {
 }
 
 ADIS16470_IMU::~ADIS16470_IMU() {
-  m_spi.StopAuto();
+  m_spi->StopAuto();
   m_freed = true;
   m_samples_not_empty.notify_all();
   if (m_acquire_task.joinable()) m_acquire_task.join();
@@ -190,10 +217,10 @@ void ADIS16470_IMU::Acquire() {
 	  Wait(.020); // A delay greater than 50ms could potentially overflow the local buffer (depends on sensor sample rate)
 
     std::fill_n(buffer, 2000, 0);  // Clear buffer
-	  data_count = m_spi.ReadAutoReceivedData(buffer,0,0_s); // Read number of bytes currently stored in the buffer
+	  data_count = m_spi->ReadAutoReceivedData(buffer,0,0_s); // Read number of bytes currently stored in the buffer
 	  data_remainder = data_count % 23; // Check if frame is incomplete
     data_to_read = data_count - data_remainder;  // Remove incomplete data from read count
-	  m_spi.ReadAutoReceivedData(buffer,data_to_read,0_s); // Read data from DMA buffer
+	  m_spi->ReadAutoReceivedData(buffer,data_to_read,0_s); // Read data from DMA buffer
 
     /* // DEBUG: Print buffer size and contents to terminal
     std::cout << "Start - " << data_count << "," << data_remainder << "," << data_to_read << std::endl;

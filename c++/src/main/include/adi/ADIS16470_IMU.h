@@ -25,6 +25,21 @@
 
 namespace frc {
 
+enum class ADIS16470CalibrationTime { 
+  _32ms = 0,
+  _64ms = 1,
+  _128ms = 2,
+  _256ms = 3,
+  _512ms = 4,
+  _1s = 5,
+  _2s = 6,
+  _4s = 7,
+  _8s = 8,
+  _16s = 9,
+  _32s = 10,
+  _64s = 11
+};
+
 /**
  * Use DMA SPI to read rate and acceleration data from the ADIS16470 IMU and return the
  * robot's heading relative to a starting position and instant measurements
@@ -54,13 +69,13 @@ class ADIS16470_IMU : public GyroBase {
    * @param yaw_axis Selects the "default" axis to use for GetAngle() and GetRate()
    * @param port The SPI port where the IMU is connected.
    */
-  explicit ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port);
+  explicit ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470CalibrationTime cal_time);
 
   ~ADIS16470_IMU();
 
   ADIS16470_IMU(ADIS16470_IMU&&) = default;
   ADIS16470_IMU& operator=(ADIS16470_IMU&&) = default;
-  
+
   /**
    * Initialize the IMU.
    *
@@ -75,7 +90,9 @@ class ADIS16470_IMU : public GyroBase {
    * 
    * The calibration routine can be triggered by the user during runtime.
    */
-  void Calibrate() override;
+  bool Recalibrate();
+
+  bool Reconfigure(ADIS16470CalibrationTime new_cal_time);
 
   /**
    * Reset the gyro.
@@ -248,6 +265,10 @@ class ADIS16470_IMU : public GyroBase {
   void InitSendable(SendableBuilder& builder) override;
 
  private:
+
+  bool SwitchToStandardSPI();
+  bool SwitchToAutoSPI();
+
   // Sample from the IMU
   struct Sample {
     double gyro_x;
@@ -298,8 +319,12 @@ class ADIS16470_IMU : public GyroBase {
   double m_integ_gyro_z = 0.0;
 
   std::atomic_bool m_freed;
-
-  SPI m_spi;
+  SPI::Port m_spi_port;
+  uint16_t m_calibration_time;
+  SPI *m_spi = nullptr;
+  DigitalInput *m_auto_interrupt;
+  
+  
   std::thread m_acquire_task;
 
   mutable wpi::mutex m_mutex;
