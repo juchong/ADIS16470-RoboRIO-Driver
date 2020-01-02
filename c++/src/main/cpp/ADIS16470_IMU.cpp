@@ -21,12 +21,6 @@
 #include <frc/WPIErrors.h>
 #include <hal/HAL.h>
 
-
-static constexpr double kDegreePerSecondPerLSB = 1.0/10.0;
-static constexpr double kGPerLSB = 1.0/800.0;
-static constexpr double kDegCPerLSB = 1.0/10.0;
-static constexpr double kDegCOffset = 0.0;
-
 static constexpr uint8_t kGLOB_CMD = 0x68;
 static constexpr uint8_t kRegDEC_RATE = 0x64;
 static constexpr uint8_t kRegFILT_CTRL = 0x5C;
@@ -34,14 +28,8 @@ static constexpr uint8_t kRegMSC_CTRL = 0x60;
 static constexpr uint8_t kRegNULL_CNFG = 0x66;
 static constexpr uint8_t kRegPROD_ID = 0x72;
 
-double timestamp_old = 0;
-
-static inline uint16_t ToUShort(const uint8_t* buf) {
-  return ((uint16_t)(buf[0]) << 8) | buf[1];
-}
-
-static inline int16_t ToShort(const uint8_t* buf) {
-  return (int16_t)(((uint16_t)(buf[0]) << 8) | buf[1]);
+static inline int32_t ToInt(const uint32_t *buf){
+  return (int32_t)( (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3] );
 }
 
 using namespace frc;
@@ -203,102 +191,50 @@ ADIS16470_IMU::~ADIS16470_IMU() {
 }
 
 void ADIS16470_IMU::Acquire() {
-  uint32_t buffer[2000];
-  double gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z, temp, status, counter;
-  int data_count = 0;
-  int data_remainder = 0;
-  int data_to_read = 0;
-  uint8_t data_subset[24];
-  uint32_t timestamp_new = 0;
+
+  // X, Y, Z values are 32-bit split across 4 indices in the buffer
+  // AutoSPI puts one byte in each index. Each index is 32-bits because the timestamp is an unsigned 32-bit int
+
+  // Data order: [timestamp, request_1, request_2, x_1, x_2, x_3, x_4, y_1, y_2, y_3, y_4, z_1, z_2, z_3, z_4]
+  // request = initial request = not used
+  // x = delta x (32-bit x_1 = highest bit)
+  // y = delta y (32-bit y_1 = highest bit)
+  // z = delta z (32-bit z_1 = highest bit)
+
+  const int dataset_len = 14; // Excluding timestamp
+
+  // This buffer can contain many datasets
+  uint32_t buffer[dataset_len * 30];
+
+  uint32_t previous_timestamp = 0;
 
   while (!m_freed) {
 
-	  // Waiting for the buffer to fill...
-	  Wait(.020); // A delay greater than 50ms could potentially overflow the local buffer (depends on sensor sample rate)
+    // Sleep loop for 10ms (wait for data)
+	  Wait(.01);
 
     std::fill_n(buffer, 2000, 0);  // Clear buffer
-	  data_count = m_spi->ReadAutoReceivedData(buffer,0,0_s); // Read number of bytes currently stored in the buffer
-	  data_remainder = data_count % 23; // Check if frame is incomplete
+	  data_count = m_spi->ReadAutoReceivedData(buffer, 0, 0_s); // Read number of bytes currently stored in the buffer
+	  data_remainder = data_count % dataset_len; // Check if frame is incomplete
     data_to_read = data_count - data_remainder;  // Remove incomplete data from read count
-	  m_spi->ReadAutoReceivedData(buffer,data_to_read,0_s); // Read data from DMA buffer
+	  m_spi->ReadAutoReceivedData(buffer, data_to_read, 0_s); // Read data from DMA buffer (only complete sets)
 
-    /* // DEBUG: Print buffer size and contents to terminal
-    std::cout << "Start - " << data_count << "," << data_remainder << "," << data_to_read << std::endl;
-    for (int m = 0; m < data_to_read - 1; m++ )
-    {
-      std::cout << buffer[m] << ",";
-    }
-    std::cout << " " << std::endl;
-    std::cout << "End" << std::endl;
-    std::cout << "Reading " << data_count << " bytes." << std::endl;
-	  */
-    for (int i = 0; i < data_to_read; i += 23) { // Process each set of 22 bytes + timestamp (23 total)
+    // Could be multiple data sets in the buffer. Handle each one.
+    for (int i = 0; i < data_to_read; i += dataset_len) {
+      // Timestamp is at buffer[i]
 
-		  for (int j = 1; j < 23; j++) {
-			  data_subset[j - 1] = buffer[i + j];  // Split each set of 22 bytes into a sub-array for processing
-      }
+      double delta_x = ToInt(&buffer[i + 3]) * (2160.0 / 2147483648.0) / (10000 * (buffer[i] - previous_timestamp)) / 4;
+      double delta_y  = ToInt(&buffer[i + 7]) * (2160.0 / 2147483648.0) / (10000 * (buffer[i] - previous_timestamp)) / 4;
+      double delta_z = ToIng(&buffer[i + 11]) * (2160.0 / 2147483648.0) / (10000 * (buffer[i] - previous_timestamp)) / 4;
+      previous_timestamp = buffer[i];
 
-		  // DEBUG: Plot sub-array data in terminal
- 		  /*std::cout << ToUShort(&data_subset[0]) << "," << ToUShort(&data_subset[2]) << "," << ToUShort(&data_subset[4]) <<
-		  "," << ToUShort(&data_subset[6]) << "," << ToUShort(&data_subset[8]) << "," << ToUShort(&data_subset[10]) << "," <<
-		  ToUShort(&data_subset[12]) << "," << ToUShort(&data_subset[14]) << "," << ToUShort(&data_subset[16]) << "," <<
-		  ToUShort(&data_subset[18]) << "," << ToUShort(&data_subset[20]) << std::endl; */
-
-      // Calculate checksum on each data packet
-      uint16_t imu_checksum = 0;
-      uint16_t calc_checksum = 0;
-		  for(int k = 2; k < 20; k++ ) { // Cycle through STATUS, XYZ GYRO, XYZ ACCEL, TEMP, COUNTER (Ignore DUT Checksum)
-			  calc_checksum += data_subset[k];
-		  }
-
-		  imu_checksum = ToUShort(&data_subset[20]); // Extract DUT checksum from data buffer
-
-      // Compare calculated vs read CRC. Don't update outputs or dt if CRC-16 is bad
-      if (calc_checksum == imu_checksum) {
-
-        // Calculate delta-time (dt) using FPGA timestamps
-        timestamp_new = buffer[i];  // Extract timestamp from buffer
-        dt = (timestamp_new - timestamp_old)/1000000; // Calculate dt and convert us to seconds
-        timestamp_old = timestamp_new; // Store new timestamp in old variable for next cycle
-
-        gyro_x = ToShort(&data_subset[4]) * kDegreePerSecondPerLSB;
-        gyro_y = ToShort(&data_subset[6]) * kDegreePerSecondPerLSB;
-        gyro_z = ToShort(&data_subset[8]) * kDegreePerSecondPerLSB;
-        accel_x = ToShort(&data_subset[10]) * kGPerLSB;
-        accel_y = ToShort(&data_subset[12]) * kGPerLSB;
-        accel_z = ToShort(&data_subset[14]) * kGPerLSB;
-        temp = ToShort(&data_subset[16]) * kDegCPerLSB + kDegCOffset;
-        status = ToUShort(&data_subset[2]);
-        counter = ToUShort(&data_subset[18]);
-
-        // Update global state
-        {
-          std::lock_guard<wpi::mutex> sync(m_mutex);
-          m_gyro_x = gyro_x;
-          m_gyro_y = gyro_y;
-          m_gyro_z = gyro_z;
-          m_accel_x = accel_x;
-          m_accel_y = accel_y;
-          m_accel_z = accel_z;
-          m_temp = temp;
-          m_status = status;
-          m_counter = counter;
-
-          // Accumulate gyro for offset calibration
-          ++m_accum_count;
-          m_accum_gyro_x += gyro_x;
-          m_accum_gyro_y += gyro_y;
-          m_accum_gyro_z += gyro_z;
-
-          // Accumulate gyro for angle integration
-          m_integ_gyro_x += (gyro_x - m_gyro_offset_x) * dt;
-          m_integ_gyro_y += (gyro_y - m_gyro_offset_y) * dt;
-          m_integ_gyro_z += (gyro_z - m_gyro_offset_z) * dt;
-        }
-      }
-      else {
-        // Print notification when checksum fails and bad data is rejected
-        std::cout << "IMU Data Checksum Invalid - " << calc_checksum << "," << imu_checksum << " - Data Ignored and Integration Time Adjusted" << std::endl;
+      // Update global state
+      {
+        std::lock_guard<wpi::mutex> sync(m_mutex);
+        // Accumulate gyro for angle integration
+        m_integ_gyro_x += delta_x;
+        m_integ_gyro_y += delta_y;
+        m_integ_gyro_z += delta_z;
       }
 	  }
   }
@@ -317,18 +253,6 @@ double ADIS16470_IMU::GetAngle() const {
   }
 }
 
-double ADIS16470_IMU::GetRate() const {
-  switch (m_yaw_axis) {
-    case kX:
-      return GetRateX();
-    case kY:
-      return GetRateY();
-    case kZ:
-      return GetRateZ();
-    default:
-      return 0.0;
-  }
-}
 
 double ADIS16470_IMU::GetAngleX() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
@@ -345,84 +269,14 @@ double ADIS16470_IMU::GetAngleZ() const {
   return m_integ_gyro_z;
 }
 
-double ADIS16470_IMU::GetRateX() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_gyro_x;
-}
-
-double ADIS16470_IMU::GetRateY() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_gyro_y;
-}
-
-double ADIS16470_IMU::GetRateZ() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_gyro_z;
-}
-
-double ADIS16470_IMU::GetAccelX() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_accel_x;
-}
-
-double ADIS16470_IMU::GetAccelY() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_accel_y;
-}
-
-double ADIS16470_IMU::GetAccelZ() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_accel_z;
-}
-
-double ADIS16470_IMU::Getdt() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return dt;
-}
-
-double ADIS16470_IMU::GetTemperature() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_temp;
-}
-
-double ADIS16470_IMU::GetStatus() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_status;
-}
-
-double ADIS16470_IMU::GetCounter() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_counter;
-}
-
 void ADIS16470_IMU::InitSendable(SendableBuilder& builder) {
   builder.SetSmartDashboardType("ADIS16470 IMU");
   auto gyroX = builder.GetEntry("GyroX").GetHandle();
   auto gyroY = builder.GetEntry("GyroY").GetHandle();
   auto gyroZ = builder.GetEntry("GyroZ").GetHandle();
-  auto accelX = builder.GetEntry("AccelX").GetHandle();
-  auto accelY = builder.GetEntry("AccelY").GetHandle();
-  auto accelZ = builder.GetEntry("AccelZ").GetHandle();
-  auto angleX = builder.GetEntry("AngleX").GetHandle();
-  auto angleY = builder.GetEntry("AngleY").GetHandle();
-  auto angleZ = builder.GetEntry("AngleZ").GetHandle();
-  auto temp = builder.GetEntry("Temperature").GetHandle();
-  auto dt = builder.GetEntry("dt").GetHandle();
-  auto status = builder.GetEntry("Status").GetHandle();
-  auto counter = builder.GetEntry("Counter").GetHandle();
   builder.SetUpdateTable([=]() {
-    nt::NetworkTableEntry(gyroX).SetDouble(GetRateX());
-    nt::NetworkTableEntry(gyroY).SetDouble(GetRateY());
-    nt::NetworkTableEntry(gyroZ).SetDouble(GetRateZ());
-    nt::NetworkTableEntry(accelX).SetDouble(GetAccelX());
-    nt::NetworkTableEntry(accelY).SetDouble(GetAccelY());
-    nt::NetworkTableEntry(accelZ).SetDouble(GetAccelZ());
     nt::NetworkTableEntry(angleX).SetDouble(GetAngleX());
     nt::NetworkTableEntry(angleY).SetDouble(GetAngleY());
     nt::NetworkTableEntry(angleZ).SetDouble(GetAngleZ());
-    nt::NetworkTableEntry(temp).SetDouble(GetTemperature());
-    nt::NetworkTableEntry(dt).SetDouble(Getdt());
-    nt::NetworkTableEntry(status).SetDouble(GetStatus());
-    nt::NetworkTableEntry(counter).SetDouble(GetCounter());
   });
 }

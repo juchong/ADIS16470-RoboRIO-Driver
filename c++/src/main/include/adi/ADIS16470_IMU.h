@@ -76,22 +76,7 @@ class ADIS16470_IMU : public GyroBase {
   ADIS16470_IMU(ADIS16470_IMU&&) = default;
   ADIS16470_IMU& operator=(ADIS16470_IMU&&) = default;
 
-  /**
-   * Initialize the IMU.
-   *
-   * Perform gyro offset calibration by collecting data for a number of seconds and 
-   * computing the center value. The center value is subtracted from subsequent
-   * measurements. 
-   *
-   * It's important to make sure that the robot is not moving while the
-   * centering calculations are in progress, this is typically done when the
-   * robot is first turned on while it's sitting at rest before the match
-   * starts.
-   * 
-   * The calibration routine can be triggered by the user during runtime.
-   */
   bool Recalibrate();
-
   bool Reconfigure(ADIS16470CalibrationTime new_cal_time);
 
   /**
@@ -117,15 +102,6 @@ class ADIS16470_IMU : public GyroBase {
    *         on integration of the returned rate from the gyro.
    */
   double GetAngle() const override;
-
-  /**
-   * Return the rate of rotation of the yaw_axis gyro.
-   *
-   * The rate is based on the most recent reading of the gyro value
-   *
-   * @return the current rate in degrees per second
-   */
-  double GetRate() const override;
 
   /**
    * Return the IMU X-axis integrated angle in degrees.
@@ -166,102 +142,6 @@ class ADIS16470_IMU : public GyroBase {
    */
   double GetAngleZ() const;
 
-  /**
-   * Return the rate of rotation of the X-axis gyro.
-   *
-   * The rate is based on the most recent reading of the gyro value
-   *
-   * @return the current rate of the X-axis gyro in degrees per second
-   */
-  double GetRateX() const;
-
-  /**
-   * Return the rate of rotation of the Y-axis gyro.
-   *
-   * The rate is based on the most recent reading of the gyro value
-   *
-   * @return the current rate of the Y-axis gyro in degrees per second
-   */
-  double GetRateY() const;
-
-  /**
-   * Return the rate of rotation of the Z-axis gyro.
-   *
-   * The rate is based on the most recent reading of the gyro value
-   *
-   * @return the current rate of the Z-axis gyro in degrees per second
-   */
-  double GetRateZ() const;
-
-  /**
-   * Return acceleration of the X-axis accelerometer.
-   *
-   * The acceleration measurement is based on the most recent reading of 
-   * the accelerometer value.
-   *
-   * @return the current acceleration of the X-axis accelerometer in g's
-   */
-  double GetAccelX() const;
-
-  /**
-   * Return acceleration of the Y-axis accelerometer.
-   *
-   * The acceleration measurement is based on the most recent reading of 
-   * the accelerometer value.
-   *
-   * @return the current acceleration of the Y-axis accelerometer in g's
-   */
-  double GetAccelY() const;
-
-  /**
-   * Return acceleration of the Z-axis accelerometer.
-   *
-   * The acceleration measurement is based on the most recent reading of 
-   * the accelerometer value.
-   *
-   * @return the current acceleration of the Z-axis accelerometer in g's
-   */
-  double GetAccelZ() const;
-
-  /**
-   * Return the delta-time calculation.
-   *
-   * The delta-time value is calculated by subtracting the previous data timestamp from the
-   * current timestamp. 
-   *
-   * @return the delta-time calculation of each data capture in seconds
-   */
-  double Getdt() const;
-
-  /**
-   * Return temperature as measured by the IMU.
-   *
-   * The temperature measurement is based on the most recent reading of the temperature sensor
-   * built in to the inertial sensors. 
-   * 
-   * @return the current temperature in degrees C
-   */
-  double GetTemperature() const;
-
-  /**
-   * Return IMU status.
-   *
-   * IMU status can be deciphered by referring to Table 10 in the datasheet.
-   * 
-   * @return the status code read from the IMU
-   */
-  double GetStatus() const;
-
-  /**
-   * Return IMU sample counter.
-   *
-   * Sample counter is incremented every time IMU data is made available on the SPI bus. 
-   * Output counts up from 0 to 65534 and rolls over to 0 continuously.
-   * 
-   * @return the sample counter
-   */
-  double GetCounter() const;
-
   void InitSendable(SendableBuilder& builder) override;
 
  private:
@@ -269,49 +149,12 @@ class ADIS16470_IMU : public GyroBase {
   bool SwitchToStandardSPI();
   bool SwitchToAutoSPI();
 
-  // Sample from the IMU
-  struct Sample {
-    double gyro_x;
-    double gyro_y;
-    double gyro_z;
-    double accel_x;
-    double accel_y;
-    double accel_z;
-    double temp;
-    double status;
-    double counter;
-    double dt;
-  };
-
   // IMU yaw axis
   IMUAxis m_yaw_axis;
 
   uint16_t ReadRegister(uint8_t reg);
   void WriteRegister(uint8_t reg, uint16_t val);
   void Acquire();
-
-  // Gyro offset
-  double m_gyro_offset_x = 0.0;
-  double m_gyro_offset_y = 0.0;
-  double m_gyro_offset_z = 0.0;
-
-  // Last read values (post-scaling)
-  double m_gyro_x = 0.0;
-  double m_gyro_y = 0.0;
-  double m_gyro_z = 0.0;
-  double m_accel_x = 0.0;
-  double m_accel_y = 0.0;
-  double m_accel_z = 0.0;
-  double m_temp = 0.0;
-  double m_status = 0.0;
-  double m_counter = 0.0;
-  double dt = 0.0;
-
-  // Accumulated gyro values (for offset calculation)
-  int m_accum_count = 0;
-  double m_accum_gyro_x = 0.0;
-  double m_accum_gyro_y = 0.0;
-  double m_accum_gyro_z = 0.0;
 
   // Integrated gyro values
   double m_integ_gyro_x = 0.0;
