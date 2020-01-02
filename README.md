@@ -3,7 +3,9 @@
 ## Introduction
 These libraries allow mentors, students, and engineers to quickly get started using the ADIS16470 Inertial Measurement Unit (IMU). This compact module provides teams with a high-performance, six-degree-of-freedom (DoF), calibrated, feedback for their FRC robots. The module packages several gyroscopes and accelerometers in a tiny, robust package, perfect for high-performance robotics (such as FRC). 
 
-<img src="https://wiki.analog.com/_media/first/adis16470_spi_board-cropped.jpg" alt="ADIS16470 Breakout Board for FRC" style="zoom:30%;" />
+<p align="center">
+  <img src="https://wiki.analog.com/_media/first/adis16470_spi_board-cropped.jpg" alt="ADIS16470 Breakout Board for FRC" width="60%%" />
+</p>
 
 To simplify the library as much as possible for the 2020 season, only a few, key IMU features are exposed to the user by default. 
 - X, Y, and Z (Pitch, Roll, and Yaw) Integrated Gyroscope Outputs
