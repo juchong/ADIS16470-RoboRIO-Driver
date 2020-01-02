@@ -23,7 +23,7 @@ To use the software, you need access to a RoboRIO and the ADIS16470 RoboRIO Brea
 
 Plug in the expansion board as shown below. **Be careful not to offset the connector!!** If installed correctly, the Power LED should turn on once the RoboRIO is powered on. The Status LED will only light up once the IMU has successfully communicated with the RoboRIO.
 
-**Your RoboRIO should be imaged to match the version of the NI Update Suite installed on your PC.** For example, if you have the latest (of this writing) update suite installed (2020.0.0), then you must also have the **FRC_roboRIO_2012_v12** image and **roboRIO_6.0.0** firmware installed. This driver relies heavily on the FPGA image loaded in the RoboRIO and _**will not work**_ on older versions. The most current NI Update Suite can be found [here](https://www.ni.com/en-us/support/downloads/drivers/download.frc-game-tools.html#333285).
+**Your RoboRIO should be imaged to match the version of the NI Update Suite installed on your PC.** For example, if you have the latest (of this writing) update suite installed (2020.0.0), then you must also have the **FRC_roboRIO_2020_v9** image and **roboRIO_6.0.0f1** firmware installed. This driver relies heavily on the FPGA image loaded in the RoboRIO and _**will not work**_ on older versions. The most current NI Update Suite can be found [here](https://www.ni.com/en-us/support/downloads/drivers/download.frc-game-tools.html#333285).
 
 ![ADIS16470 Breakout Board Installed on a RoboRIO](https://raw.githubusercontent.com/juchong/ADIS16470-RoboRIO-Driver/master/docs/RioSensorBoard.jpg)
 
