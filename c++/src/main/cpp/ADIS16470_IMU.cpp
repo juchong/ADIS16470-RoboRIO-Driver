@@ -106,12 +106,15 @@ bool ADIS16470_IMU::SwitchToStandardSPI(){
 
   if (!m_freed) {
     m_freed = true;
-    if (m_acquire_task.joinable()) m_acquire_task.join();
+    if (m_acquire_task->joinable()) m_acquire_task->join();
+    delete m_acquire_task;
+    m_acquire_task = nullptr;
   }
 
   if (m_spi != nullptr) {
     delete m_spi;
     delete m_auto_interrupt;
+    m_spi = nullptr;
   }
 
   // Set general SPI settings
@@ -169,7 +172,7 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
   if(m_freed) {
     // Restart acquire thread
     m_freed = false;
-    m_acquire_task = std::thread(&ADIS16470_IMU::Acquire, this);
+    m_acquire_task = new std::thread(&ADIS16470_IMU::Acquire, this);
   }
 
   // Reset gyro accumulation
@@ -273,7 +276,8 @@ void ADIS16470_IMU::Reset() {
 ADIS16470_IMU::~ADIS16470_IMU() {
   m_spi->StopAuto();
   m_freed = true;
-  if (m_acquire_task.joinable()) m_acquire_task.join();
+  if (m_acquire_task->joinable()) m_acquire_task->join();
+  delete m_acquire_task;
 }
 
 /**

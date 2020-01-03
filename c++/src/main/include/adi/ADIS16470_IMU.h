@@ -246,7 +246,7 @@ class ADIS16470_IMU : public GyroBase {
   SPI *m_spi = nullptr;
   DigitalInput *m_auto_interrupt;
   
-  std::thread m_acquire_task;
+  std::thread *m_acquire_task = nullptr;
 
   mutable wpi::mutex m_mutex;
 
