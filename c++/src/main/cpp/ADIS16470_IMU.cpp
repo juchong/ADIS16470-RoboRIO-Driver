@@ -80,10 +80,6 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
   // Configure and enable auto SPI
   SwitchToAutoSPI();
 
-  // Kick off acquire thread
-  m_freed = false;
-  m_acquire_task = std::thread(&ADIS16470_IMU::Acquire, this);
-
   // Let the user know the IMU was initiallized successfully
   DriverStation::ReportWarning("ADIS16470 IMU Successfully Initialized!");
 
@@ -108,8 +104,15 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
  **/
 bool ADIS16470_IMU::SwitchToStandardSPI(){
 
-  if (m_spi != nullptr)
+  if (!m_freed) {
+    m_freed = true;
+    if (m_acquire_task.joinable()) m_acquire_task.join();
+  }
+
+  if (m_spi != nullptr) {
     delete m_spi;
+    delete m_auto_interrupt;
+  }
 
   // Set general SPI settings
   m_spi = new SPI(m_spi_port);
@@ -152,7 +155,6 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
     }
   }
 
-  // Configure interrupt on SPI CS1
   m_auto_interrupt = new DigitalInput(26);
 
   // Configure DMA SPI
@@ -163,6 +165,15 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
 
   // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
   m_spi->StartAutoTrigger(*m_auto_interrupt, true, false);
+
+  if(m_freed) {
+    // Restart acquire thread
+    m_freed = false;
+    m_acquire_task = std::thread(&ADIS16470_IMU::Acquire, this);
+  }
+
+  // Reset gyro accumulation
+  Reset();
 
   return true;
 }
@@ -179,7 +190,7 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
   * themselves. After waiting the configured calibration time, the Calibrate() function should be called to activate the new
   * offset calibration. 
  **/
-bool ADIS16470_IMU::Reconfigure(ADIS16470CalibrationTime new_cal_time) { 
+bool ADIS16470_IMU::ConfigCalTime(ADIS16470CalibrationTime new_cal_time) { 
   if(!SwitchToStandardSPI())
     return false;
   m_calibration_time = (uint16_t)new_cal_time;
@@ -269,12 +280,11 @@ ADIS16470_IMU::~ADIS16470_IMU() {
   * @brief Main acquisition loop. Typically called asynchronously and free-wheels while the robot code is active. 
   *
   * This is the main acquisiton loop for the IMU. During each iteration, data read using auto SPI is 
-  * extracted from the FPGA FIFO, split, scaled, and integrated. 
-  * 
-  * Each X, Y, and Z value is 32-bits split across 4 indices (bytes) in the buffer.
-  * Auto SPI puts one byte in each index location. Each index is 32-bits wide because the timestamp is an unsigned 32-bit int.
-  * The timestamp is always located at the beginning of the frame. Two indices (request_1 and request_2 below) are always
-  * invalid (garbage) and can be disregarded.
+  * extracted from the FPGA FIFO, split, scaled, and integrated. Each X, Y, and Z value is 32-bits split 
+  * across 4 indices (bytes) in the buffer. Auto SPI puts one byte in each index location. 
+  * Each index is 32-bits wide because the timestamp is an unsigned 32-bit int.
+  * The timestamp is always located at the beginning of the frame. Two indices (request_1 and request_2 below)
+  * are always invalid (garbage) and can be disregarded.
   *
   * Data order: [timestamp, request_1, request_2, x_1, x_2, x_3, x_4, y_1, y_2, y_3, y_4, z_1, z_2, z_3, z_4]
   * x = delta x (32-bit x_1 = highest bit)
@@ -318,9 +328,9 @@ void ADIS16470_IMU::Acquire() {
     for (int i = 0; i < data_to_read; i += dataset_len) {
       // Timestamp is at buffer[i]
       // Scale 32-bit data and adjust for IMU decimation seting (2000 / 4 + 1 = 400SPS)
-      delta_x = (ToInt(&buffer[i + 3]) * (2160.0 / 2147483648.0)) / ((10000 / (buffer[i] - previous_timestamp)) / 4);
-      delta_y = (ToInt(&buffer[i + 7]) * (2160.0 / 2147483648.0)) / ((10000 / (buffer[i] - previous_timestamp)) / 4);
-      delta_z = (ToInt(&buffer[i + 11]) * (2160.0 / 2147483648.0)) / ((10000 / (buffer[i] - previous_timestamp)) / 4);
+      delta_x = (ToInt(&buffer[i + 3]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
+      delta_y = (ToInt(&buffer[i + 7]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
+      delta_z = (ToInt(&buffer[i + 11]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
       previous_timestamp = buffer[i];
 
       /*
@@ -336,8 +346,10 @@ void ADIS16470_IMU::Acquire() {
         m_integ_gyro_z += delta_z;
       }
 
+      /*
       // DEBUG: Print accumulated values
-      //std::cout << m_integ_gyro_x << "," << m_integ_gyro_y << "," << m_integ_gyro_z << std::endl;
+      std::cout << m_integ_gyro_x << "," << m_integ_gyro_y << "," << m_integ_gyro_z << std::endl;
+      */
 
     }
   }

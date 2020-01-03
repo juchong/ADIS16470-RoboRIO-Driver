@@ -154,7 +154,7 @@ class ADIS16470_IMU : public GyroBase {
   ADIS16470_IMU& operator=(ADIS16470_IMU&&) = default;
 
   void Calibrate() override;
-  bool Reconfigure(ADIS16470CalibrationTime new_cal_time);
+  bool ConfigCalTime(ADIS16470CalibrationTime new_cal_time);
 
   /**
    * Reset the gyro.
