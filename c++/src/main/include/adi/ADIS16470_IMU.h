@@ -58,6 +58,7 @@ static constexpr uint8_t Z_ACCL_LOW     =   0x18;  //Z-axis accelerometer output
 static constexpr uint8_t Z_ACCL_OUT     =   0x1A;  //Z-axis accelerometer output, upper word
 static constexpr uint8_t TEMP_OUT       =   0x1C;  //Temperature output (internal, not calibrated)
 static constexpr uint8_t TIME_STAMP     =   0x1E;  //PPS mode time stamp
+static constexpr uint8_t DATA_CNTR      =   0x22;  //Data update counter
 static constexpr uint8_t X_DELTANG_LOW  =   0x24;  //X-axis delta angle output, lower word
 static constexpr uint8_t X_DELTANG_OUT  =   0x26;  //X-axis delta angle output, upper word
 static constexpr uint8_t Y_DELTANG_LOW  =   0x28;  //Y-axis delta angle output, lower word
@@ -100,20 +101,22 @@ static constexpr uint8_t FLSHCNT_LOW    =   0x7C;  //Flash update count, lower w
 static constexpr uint8_t FLSHCNT_HIGH   =   0x7E;  //Flash update count, upper word 
 
 /* ADIS16470 Auto SPI Data Packet */
-static constexpr uint8_t m_autospi_packet [14] = {
-X_DELTANG_OUT, 
-FLASH_CNT, 
-X_DELTANG_LOW, 
-FLASH_CNT, 
-Y_DELTANG_OUT, 
-FLASH_CNT, 
-Y_DELTANG_LOW, 
-FLASH_CNT, 
-Z_DELTANG_OUT, 
-FLASH_CNT, 
-Z_DELTANG_LOW, 
-FLASH_CNT, 
-PROD_ID, 
+static constexpr uint8_t m_autospi_packet [16] = {
+DIAG_STAT,
+FLASH_CNT,
+X_GYRO_OUT,
+FLASH_CNT,
+Y_GYRO_OUT,
+FLASH_CNT,
+Z_GYRO_OUT,
+FLASH_CNT,
+X_ACCL_OUT,
+FLASH_CNT,
+Y_ACCL_OUT,
+FLASH_CNT,
+Z_ACCL_OUT,
+FLASH_CNT,
+DATA_CNTR, 
 FLASH_CNT
 };
 
@@ -283,6 +286,10 @@ class ADIS16470_IMU : public GyroBase {
   double m_integ_gyro_x = 0.0;
   double m_integ_gyro_y = 0.0;
   double m_integ_gyro_z = 0.0;
+
+  double m_accel_x = 0.0;
+  double m_accel_y = 0.0;
+  double m_accel_z = 0.0;
 
   std::atomic_bool m_freed;
   SPI::Port m_spi_port;

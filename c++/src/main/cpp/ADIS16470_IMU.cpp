@@ -23,8 +23,16 @@
 #include <hal/HAL.h>
 
 /* Helpful conversion functions */
-static inline int32_t ToInt(const uint32_t *buf){
-  return (int32_t)( (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3] );
+static inline int32_t ToInt(const uint32_t* buf){
+  return (int32_t)((buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3]);
+}
+
+static inline uint16_t BuffToUShort(const uint32_t* buf) {
+  return ((uint16_t)(buf[0]) << 8) | buf[1];
+}
+
+static inline int16_t BuffToShort(const uint32_t* buf) {
+  return (int16_t)(((uint16_t)(buf[0]) << 8) | buf[1]);
 }
 
 static inline uint16_t ToUShort(const uint8_t* buf) {
@@ -162,7 +170,7 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
 
   // Configure DMA SPI
   m_spi->InitAuto(8200);
-  m_spi->SetAutoTransmitData(m_autospi_packet, 0);
+  m_spi->SetAutoTransmitData(m_autospi_packet, 2);
   //m_spi->ConfigureAutoStall(static_cast<HAL_SPIPort>(m_spi_port), 5, 1000, 1);
   m_spi->ConfigureAutoStall(HAL_SPI_kOnboardCS0, 5, 1000, 1);
 
@@ -296,14 +304,14 @@ ADIS16470_IMU::~ADIS16470_IMU() {
  **/
 void ADIS16470_IMU::Acquire() {
   // Set data packet length
-  const int dataset_len = 15; // 14 data points + timestamp
-  const int num_buffers = 30;
+  const int dataset_len = 19; // 18 registers + timestamp
+  const int num_buffers = 16;
 
   // This buffer can contain many datasets
   uint32_t buffer[dataset_len * num_buffers];
   int data_count, data_remainder, data_to_read = 0;
   uint32_t previous_timestamp = 0;
-  double delta_x, delta_y, delta_z;
+  double status_imu, delta_x, delta_y, delta_z, gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z, data_count_imu;
 
   while (!m_freed) {
 
@@ -331,15 +339,25 @@ void ADIS16470_IMU::Acquire() {
     for (int i = 0; i < data_to_read; i += dataset_len) {
       // Timestamp is at buffer[i]
       // Scale 32-bit data and adjust for IMU decimation seting (2000 / 4 + 1 = 400SPS)
-      delta_x = (ToInt(&buffer[i + 3]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
-      delta_y = (ToInt(&buffer[i + 7]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
-      delta_z = (ToInt(&buffer[i + 11]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
-      previous_timestamp = buffer[i];
+      status_imu = (BuffToUShort(&buffer[i + 3]));
+      gyro_x = (BuffToShort(&buffer[i + 5]) / 10.0);
+      gyro_y = (BuffToShort(&buffer[i + 7]) / 10.0);
+      gyro_z = (BuffToShort(&buffer[i + 9]) / 10.0);
+      accel_x = (BuffToShort(&buffer[i + 11]) / 800.0);
+      accel_y = (BuffToShort(&buffer[i + 13]) / 800.0);
+      accel_z = (BuffToShort(&buffer[i + 15]) / 800.0);
+      data_count_imu = (BuffToUShort(&buffer[i + 17]));
 
-      /*
+      delta_x = gyro_x * ((buffer[i] - previous_timestamp) / 1000000.0);
+      delta_y = gyro_y * ((buffer[i] - previous_timestamp) / 1000000.0);
+      delta_z = gyro_z * ((buffer[i] - previous_timestamp) / 1000000.0);
+
       // DEBUG: Print timestamp and delta values
-      std::cout << previous_timestamp << "," << delta_x << "," << delta_y << "," << delta_z << std::endl;
-      */
+      //std::cout << previous_timestamp << "," << delta_x << "," << delta_y << "," << delta_z << std::endl;
+      //std::cout << previous_timestamp << "," << gyro_x << "," << gyro_y << "," << gyro_z << std::endl;
+      
+
+      previous_timestamp = buffer[i];
 
       {
         std::lock_guard<wpi::mutex> sync(m_mutex);
@@ -347,6 +365,10 @@ void ADIS16470_IMU::Acquire() {
         m_integ_gyro_x += delta_x;
         m_integ_gyro_y += delta_y;
         m_integ_gyro_z += delta_z;
+        //std::cout << previous_timestamp << "," << m_integ_gyro_x << "," << m_integ_gyro_y << "," << m_integ_gyro_z << std::endl;
+        m_accel_x = accel_x;
+        m_accel_y = accel_y;
+        m_accel_z = accel_z;
       }
 
       /*
@@ -425,6 +447,8 @@ double ADIS16470_IMU::GetAngleZ() const {
 double ADIS16470_IMU::GetRate() const {
   return 0;
 }
+
+
 
 /**
   * @brief Builds a Sendable object to push IMU data to the driver station.
