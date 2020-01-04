@@ -1,39 +1,31 @@
 /*----------------------------------------------------------------------------*/
-/* Copyright (c) 2016-2018 FIRST. All Rights Reserved.                        */
+/* Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.           */
 /* Open Source Software - may be modified and shared by FRC teams. The code   */
 /* must be accompanied by the FIRST BSD license file in the root directory of */
 /* the project.                                                               */
 /*                                                                            */
-/* Modified by Juan Chong - juan.chong@analog.com                             */
+/* Juan Chong - frcsupport@analog.com                                         */
 /*----------------------------------------------------------------------------*/
 
 #include <string>
 #include <iostream>
 #include <cmath>
 
+#include <adi/ADIS16470_IMU.h>
+
 #include <frc/DigitalInput.h>
 #include <frc/DigitalSource.h>
 #include <frc/DriverStation.h>
 #include <frc/ErrorBase.h>
-#include <adi/ADIS16470_IMU.h>
 #include <frc/smartdashboard/SendableBuilder.h>
 #include <frc/Timer.h>
 #include <frc/WPIErrors.h>
 #include <hal/HAL.h>
 
-static constexpr double kCalibrationSampleTime = 5.0; // Calibration time in seconds (regardless of sps)
-static constexpr double kDegreePerSecondPerLSB = 1.0/10.0;
-static constexpr double kGPerLSB = 1.0/800.0;
-static constexpr double kDegCPerLSB = 1.0/10.0;
-static constexpr double kDegCOffset = 0.0;
-
-static constexpr uint8_t kGLOB_CMD = 0x68;
-static constexpr uint8_t kRegDEC_RATE = 0x64;
-static constexpr uint8_t kRegFILT_CTRL = 0x5C;
-static constexpr uint8_t kRegMSC_CTRL = 0x60;
-static constexpr uint8_t kRegPROD_ID = 0x72;
-
-double timestamp_old = 0;
+/* Helpful conversion functions */
+static inline int32_t ToInt(const uint32_t *buf){
+  return (int32_t)( (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3] );
+}
 
 static inline uint16_t ToUShort(const uint8_t* buf) {
   return ((uint16_t)(buf[0]) << 8) | buf[1];
@@ -48,9 +40,12 @@ using namespace frc;
 /**
  * Constructor.
  */
-ADIS16470_IMU::ADIS16470_IMU() : ADIS16470_IMU(kZ, SPI::Port::kOnboardCS0) {}
+ADIS16470_IMU::ADIS16470_IMU() : ADIS16470_IMU(kZ, SPI::Port::kOnboardCS0, ADIS16470CalibrationTime::_4s) {}
 
-ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_axis), m_spi(port) {
+ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470CalibrationTime cal_time) : 
+                m_yaw_axis(yaw_axis), 
+                m_spi_port(port),
+                m_calibration_time((uint16_t)cal_time) {
 
   // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
   // Relies on the RIO hardware by default configuring an output as low
@@ -62,105 +57,215 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port) : m_yaw_axis(yaw_
   /*DigitalInput *m_reset_in = */new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
   Wait(0.5); // Wait 500ms for reset to complete
 
-  // Set general SPI settings
-  m_spi.SetClockRate(1000000);
-  m_spi.SetMSBFirst();
-  m_spi.SetSampleDataOnTrailingEdge();
-  m_spi.SetClockActiveLow();
-  m_spi.SetChipSelectActiveLow();
-
-  ReadRegister(kRegPROD_ID); // Dummy read
-
-  // Validate the product ID
-  if (ReadRegister(kRegPROD_ID) != 16982) {
-    DriverStation::ReportError("Could not find ADIS16470!");
+  // Configure standard SPI
+  if(!SwitchToStandardSPI()){
     return;
   }
-  else {
-    DriverStation::ReportError("ADIS16470 IMU Detected. Starting calibration.");
-  }
 
-  // Set IMU internal decimation to 200 SPS
-  WriteRegister(kRegDEC_RATE, 0x0009);
-
-  // Enable Data Ready (LOW = Good Data), gSense Compensation, PoP
-  WriteRegister(kRegMSC_CTRL, 0x00C1);
-
+  // Set IMU internal decimation to 400 SPS
+  WriteRegister(DEC_RATE, 0x0004);
+  // Set data ready polarity (HIGH = Good Data), gSense Compensation, PoP
+  WriteRegister(MSC_CTRL, 0x00C1);
   // Configure IMU internal Bartlett filter
-  WriteRegister(kRegFILT_CTRL, 0x0000);
+  WriteRegister(FILT_CTRL, 0x0000);
+  // Configure continuous bias calibration time based on user setting
+  WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
 
-  // Configure interrupt on SPI CS1
-  DigitalInput *m_interrupt = new DigitalInput(26);
+  // Notify DS that IMU calibration delay is active
+  DriverStation::ReportWarning("ADIS16470 IMU Detected. Starting initial calibration delay.");
 
-  // Configure DMA SPI
-  m_spi.InitAuto(8200);
-  m_spi.SetAutoTransmitData(kGLOB_CMD,21);
+  // Wait for samples to accumulate internal to the IMU (110% of user-defined time)
+  Wait(pow(2, m_calibration_time) / 2000 * 64 * 1.1);
 
-  // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
-  m_spi.StartAutoTrigger(*m_interrupt,true,false);
+  // Write offset calibration command to IMU
+  WriteRegister(GLOB_CMD, 0x0001);
 
-  // Start acquisition and calculation threads
-  m_freed = false;
-  m_acquire_task = std::thread(&ADIS16470_IMU::Acquire, this);
-
-  // Execute offset calibration on start-up
-  Calibrate();
-
-  Wait(0.500);
-
-  // Re-initialize accumulations after calibration
-  Reset();
+  // Configure and enable auto SPI
+  SwitchToAutoSPI();
 
   // Let the user know the IMU was initiallized successfully
   DriverStation::ReportWarning("ADIS16470 IMU Successfully Initialized!");
 
-  // Drive "Ready" LED low
-  /*auto *m_status_led = */new DigitalOutput(28);  // Set SPI CS3 (IMU Ready LED) low
+  // Drive SPI CS3 (IMU ready LED) low (active low)
+  new DigitalOutput(28); 
 
   // Report usage and post data to DS
   HAL_Report(HALUsageReporting::kResourceType_ADIS16470, 0);
   SetName("ADIS16470", 0);
 }
 
-void ADIS16470_IMU::Calibrate() {
-  {
-    std::lock_guard<wpi::mutex> sync(m_mutex);
-    m_accum_count = 0;
-    m_accum_gyro_x = 0.0;
-    m_accum_gyro_y = 0.0;
-    m_accum_gyro_z = 0.0;
+/**
+  * @brief Switches to standard SPI operation. Primarily used when exiting auto SPI mode.
+  *
+  * @return A boolean indicating the success or failure of setting up the SPI peripheral in standard SPI mode.
+  *
+  * This function switches the active SPI port to standard SPI and is used primarily when 
+  * exiting auto SPI. Exiting auto SPI is required to read or write using SPI since the 
+  * auto SPI configuration, once active, locks the SPI message being transacted. This function
+  * also verifies that the SPI port is operating in standard SPI mode by reading back the IMU
+  * product ID. 
+ **/
+bool ADIS16470_IMU::SwitchToStandardSPI(){
+
+  if (!m_freed) {
+    m_freed = true;
+    if (m_acquire_task.joinable()) m_acquire_task.join();
   }
 
-  Wait(kCalibrationSampleTime);
-  {
-    std::lock_guard<wpi::mutex> sync(m_mutex);
-    m_gyro_offset_x = m_accum_gyro_x / m_accum_count;
-    m_gyro_offset_y = m_accum_gyro_y / m_accum_count;
-    m_gyro_offset_z = m_accum_gyro_z / m_accum_count;
+  if (m_spi != nullptr) {
+    delete m_spi;
+    delete m_auto_interrupt;
+    m_spi = nullptr;
   }
+
+  // Set general SPI settings
+  m_spi = new SPI(m_spi_port);
+  m_spi->SetClockRate(2000000);
+  m_spi->SetMSBFirst();
+  m_spi->SetSampleDataOnTrailingEdge();
+  m_spi->SetClockActiveLow();
+  m_spi->SetChipSelectActiveLow();
+
+  ReadRegister(PROD_ID); // Dummy read
+
+  // Validate the product ID
+  uint16_t prod_id = ReadRegister(PROD_ID);
+  if (prod_id != 16982 && prod_id != 16470) {
+    DriverStation::ReportError("Could not find ADIS16470!");
+    return false;
+  }
+  return true;
 }
 
+/**
+  * @brief Switches to auto SPI operation. Primarily used when exiting standard SPI mode.
+  *
+  * @return A boolean indicating the success or failure of setting up the SPI peripheral in auto SPI mode.
+  *
+  * This function switches the active SPI port to auto SPI and is used primarily when 
+  * exiting standard SPI. Auto SPI is required to asynchronously read data over SPI as it utilizes
+  * special FPGA hardware to react to an external data ready (GPIO) input. Data captured using auto SPI
+  * is buffered in the FPGA and can be read by the CPU asynchronously. Standard SPI transactions are
+  * impossible on the selected SPI port once auto SPI is enabled. The stall settings, GPIO interrupt pin,
+  * and data packet settings used in this function are hard-coded to work only with the ADIS16470 IMU.
+ **/
+bool ADIS16470_IMU::SwitchToAutoSPI(){
+
+  // Initialize standard SPI first
+  if(m_spi == nullptr){
+    if(!SwitchToStandardSPI()){
+      return false;
+    }
+  }
+
+  m_auto_interrupt = new DigitalInput(26);
+
+  // Configure DMA SPI
+  m_spi->InitAuto(8200);
+  m_spi->SetAutoTransmitData(m_autospi_packet, 0);
+  //m_spi->ConfigureAutoStall(static_cast<HAL_SPIPort>(m_spi_port), 5, 1000, 1);
+  m_spi->ConfigureAutoStall(HAL_SPI_kOnboardCS0, 5, 1000, 1);
+
+  // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
+  m_spi->StartAutoTrigger(*m_auto_interrupt, true, false);
+
+  if(m_freed) {
+    // Restart acquire thread
+    m_freed = false;
+    m_acquire_task = std::thread(&ADIS16470_IMU::Acquire, this);
+  }
+
+  // Reset gyro accumulation
+  Reset();
+
+  return true;
+}
+
+/**
+  * @brief Switches the active SPI port to standard SPI mode, writes a new value to the NULL_CNFG register in the IMU, and re-enables auto SPI.
+  *
+  * @param new_cal_time Calibration time to be set.
+  * 
+  * @return A boolean indicating the success or failure of writing the new NULL_CNFG setting and returning to auto SPI mode.
+  *
+  * This function enters standard SPI mode, writes a new NULL_CNFG setting to the IMU, and re-enters auto SPI mode. 
+  * This function does not include a blocking sleep, so the user must keep track of the elapsed offset calibration time
+  * themselves. After waiting the configured calibration time, the Calibrate() function should be called to activate the new
+  * offset calibration. 
+ **/
+bool ADIS16470_IMU::ConfigCalTime(ADIS16470CalibrationTime new_cal_time) { 
+  if(!SwitchToStandardSPI())
+    return false;
+  m_calibration_time = (uint16_t)new_cal_time;
+  WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
+  SwitchToAutoSPI();
+  return true;
+}
+
+/**
+  * @brief Switches the active SPI port to standard SPI mode, writes the command to activate the new null configuration, and re-enables auto SPI.
+  *
+  * This function enters standard SPI mode, writes 0x0001 to the GLOB_CMD register (thus making the new offset active in the IMU), and 
+  * re-enters auto SPI mode. This function does not include a blocking sleep, so the user must keep track of the elapsed offset calibration time
+  * themselves. 
+ **/
+void ADIS16470_IMU::Calibrate() {
+  if(!SwitchToStandardSPI())
+    return;
+  WriteRegister(GLOB_CMD, 0x0001);
+  SwitchToAutoSPI();
+}
+
+/**
+  * @brief Reads the contents of a specified register location over SPI. 
+  *
+  * @param reg An unsigned, 8-bit register location.
+  * 
+  * @return An unsigned, 16-bit number representing the contents of the requested register location.
+  *
+  * This function reads the contents of an 8-bit register location by transmitting the register location
+  * byte along with a null (0x00) byte using the standard WPILib API. The response (two bytes) is read 
+  * back using the WPILib API and joined using a helper function. This function assumes the controller 
+  * is set to standard SPI mode.
+ **/
 uint16_t ADIS16470_IMU::ReadRegister(uint8_t reg) {
   uint8_t buf[2];
   buf[0] = reg & 0x7f;
   buf[1] = 0;
 
-  m_spi.Write(buf, 2);
-  m_spi.Read(false, buf, 2);
+  m_spi->Write(buf, 2);
+  m_spi->Read(false, buf, 2);
 
   return ToUShort(buf);
 }
 
+/**
+  * @brief Writes an unsigned, 16-bit value to two adjacent, 8-bit register locations over SPI.
+  *
+  * @param reg An unsigned, 8-bit register location.
+  * 
+  * @param val An unsigned, 16-bit value to be written to the specified register location.
+  *
+  * This function writes an unsigned, 16-bit value into adjacent 8-bit addresses via SPI. The upper
+  * and lower bytes that make up the 16-bit value are split into two unsined, 8-bit values and written
+  * to the upper and lower addresses of the specified register value. Only the lower (base) address
+  * must be specified. This function assumes the controller is set to standard SPI mode.
+ **/
 void ADIS16470_IMU::WriteRegister(uint8_t reg, uint16_t val) {
   uint8_t buf[2];
   buf[0] = 0x80 | reg;
   buf[1] = val & 0xff;
-  m_spi.Write(buf, 2);
+  m_spi->Write(buf, 2);
   buf[0] = 0x81 | reg;
   buf[1] = val >> 8;
-  m_spi.Write(buf, 2);
+  m_spi->Write(buf, 2);
 }
 
+/**
+  * @brief Resets (zeros) the xgyro, ygyro, and zgyro angle integrations. 
+  *
+  * This function resets (zeros) the accumulated (integrated) angle estimates for the xgyro, ygyro, and zgyro outputs.
+ **/
 void ADIS16470_IMU::Reset() {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   m_integ_gyro_x = 0.0;
@@ -169,33 +274,49 @@ void ADIS16470_IMU::Reset() {
 }
 
 ADIS16470_IMU::~ADIS16470_IMU() {
-  m_spi.StopAuto();
+  m_spi->StopAuto();
   m_freed = true;
-  m_samples_not_empty.notify_all();
   if (m_acquire_task.joinable()) m_acquire_task.join();
 }
 
+/**
+  * @brief Main acquisition loop. Typically called asynchronously and free-wheels while the robot code is active. 
+  *
+  * This is the main acquisiton loop for the IMU. During each iteration, data read using auto SPI is 
+  * extracted from the FPGA FIFO, split, scaled, and integrated. Each X, Y, and Z value is 32-bits split 
+  * across 4 indices (bytes) in the buffer. Auto SPI puts one byte in each index location. 
+  * Each index is 32-bits wide because the timestamp is an unsigned 32-bit int.
+  * The timestamp is always located at the beginning of the frame. Two indices (request_1 and request_2 below)
+  * are always invalid (garbage) and can be disregarded.
+  *
+  * Data order: [timestamp, request_1, request_2, x_1, x_2, x_3, x_4, y_1, y_2, y_3, y_4, z_1, z_2, z_3, z_4]
+  * x = delta x (32-bit x_1 = highest bit)
+  * y = delta y (32-bit y_1 = highest bit)
+  * z = delta z (32-bit z_1 = highest bit)
+ **/
 void ADIS16470_IMU::Acquire() {
-  uint32_t buffer[2000];
-  double gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z, temp, status, counter;
-  int data_count = 0;
-  int data_remainder = 0;
-  int data_to_read = 0;
-  uint8_t data_subset[24];
-  uint32_t timestamp_new = 0;
+  // Set data packet length
+  const int dataset_len = 15; // 14 data points + timestamp
+  const int num_buffers = 30;
+
+  // This buffer can contain many datasets
+  uint32_t buffer[dataset_len * num_buffers];
+  int data_count, data_remainder, data_to_read = 0;
+  uint32_t previous_timestamp = 0;
+  double delta_x, delta_y, delta_z;
 
   while (!m_freed) {
 
-	  // Waiting for the buffer to fill...
-	  Wait(.020); // A delay greater than 50ms could potentially overflow the local buffer (depends on sensor sample rate)
+    // Sleep loop for 10ms (wait for data)
+	  Wait(.01);
 
-    std::fill_n(buffer, 2000, 0);  // Clear buffer
-	  data_count = m_spi.ReadAutoReceivedData(buffer,0,0_s); // Read number of bytes currently stored in the buffer
-	  data_remainder = data_count % 23; // Check if frame is incomplete
+	  data_count = m_spi->ReadAutoReceivedData(buffer, 0, 0_s); // Read number of bytes currently stored in the buffer
+	  data_remainder = data_count % dataset_len; // Check if frame is incomplete. Add 1 because of timestamp
     data_to_read = data_count - data_remainder;  // Remove incomplete data from read count
-	  m_spi.ReadAutoReceivedData(buffer,data_to_read,0_s); // Read data from DMA buffer
+	  m_spi->ReadAutoReceivedData(buffer, data_to_read, 0_s); // Read data from DMA buffer (only complete sets)
 
-    /* // DEBUG: Print buffer size and contents to terminal
+    /*
+    // DEBUG: Print buffer size and contents to terminal
     std::cout << "Start - " << data_count << "," << data_remainder << "," << data_to_read << std::endl;
     for (int m = 0; m < data_to_read - 1; m++ )
     {
@@ -204,79 +325,50 @@ void ADIS16470_IMU::Acquire() {
     std::cout << " " << std::endl;
     std::cout << "End" << std::endl;
     std::cout << "Reading " << data_count << " bytes." << std::endl;
-	  */
-    for (int i = 0; i < data_to_read; i += 23) { // Process each set of 22 bytes + timestamp (23 total)
+    */
+	  
+    // Could be multiple data sets in the buffer. Handle each one.
+    for (int i = 0; i < data_to_read; i += dataset_len) {
+      // Timestamp is at buffer[i]
+      // Scale 32-bit data and adjust for IMU decimation seting (2000 / 4 + 1 = 400SPS)
+      delta_x = (ToInt(&buffer[i + 3]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
+      delta_y = (ToInt(&buffer[i + 7]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
+      delta_z = (ToInt(&buffer[i + 11]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
+      previous_timestamp = buffer[i];
 
-		  for (int j = 1; j < 23; j++) {
-			  data_subset[j - 1] = buffer[i + j];  // Split each set of 22 bytes into a sub-array for processing
+      /*
+      // DEBUG: Print timestamp and delta values
+      std::cout << previous_timestamp << "," << delta_x << "," << delta_y << "," << delta_z << std::endl;
+      */
+
+      {
+        std::lock_guard<wpi::mutex> sync(m_mutex);
+        // Accumulate gyro for angle integration
+        m_integ_gyro_x += delta_x;
+        m_integ_gyro_y += delta_y;
+        m_integ_gyro_z += delta_z;
       }
 
-		  // DEBUG: Plot sub-array data in terminal
- 		  /*std::cout << ToUShort(&data_subset[0]) << "," << ToUShort(&data_subset[2]) << "," << ToUShort(&data_subset[4]) <<
-		  "," << ToUShort(&data_subset[6]) << "," << ToUShort(&data_subset[8]) << "," << ToUShort(&data_subset[10]) << "," <<
-		  ToUShort(&data_subset[12]) << "," << ToUShort(&data_subset[14]) << "," << ToUShort(&data_subset[16]) << "," <<
-		  ToUShort(&data_subset[18]) << "," << ToUShort(&data_subset[20]) << std::endl; */
+      /*
+      // DEBUG: Print accumulated values
+      std::cout << m_integ_gyro_x << "," << m_integ_gyro_y << "," << m_integ_gyro_z << std::endl;
+      */
 
-      // Calculate checksum on each data packet
-      uint16_t imu_checksum = 0;
-      uint16_t calc_checksum = 0;
-		  for(int k = 2; k < 20; k++ ) { // Cycle through STATUS, XYZ GYRO, XYZ ACCEL, TEMP, COUNTER (Ignore DUT Checksum)
-			  calc_checksum += data_subset[k];
-		  }
-
-		  imu_checksum = ToUShort(&data_subset[20]); // Extract DUT checksum from data buffer
-
-      // Compare calculated vs read CRC. Don't update outputs or dt if CRC-16 is bad
-      if (calc_checksum == imu_checksum) {
-
-        // Calculate delta-time (dt) using FPGA timestamps
-        timestamp_new = buffer[i];  // Extract timestamp from buffer
-        dt = (timestamp_new - timestamp_old)/1000000; // Calculate dt and convert us to seconds
-        timestamp_old = timestamp_new; // Store new timestamp in old variable for next cycle
-
-        gyro_x = ToShort(&data_subset[4]) * kDegreePerSecondPerLSB;
-        gyro_y = ToShort(&data_subset[6]) * kDegreePerSecondPerLSB;
-        gyro_z = ToShort(&data_subset[8]) * kDegreePerSecondPerLSB;
-        accel_x = ToShort(&data_subset[10]) * kGPerLSB;
-        accel_y = ToShort(&data_subset[12]) * kGPerLSB;
-        accel_z = ToShort(&data_subset[14]) * kGPerLSB;
-        temp = ToShort(&data_subset[16]) * kDegCPerLSB + kDegCOffset;
-        status = ToUShort(&data_subset[2]);
-        counter = ToUShort(&data_subset[18]);
-
-        // Update global state
-        {
-          std::lock_guard<wpi::mutex> sync(m_mutex);
-          m_gyro_x = gyro_x;
-          m_gyro_y = gyro_y;
-          m_gyro_z = gyro_z;
-          m_accel_x = accel_x;
-          m_accel_y = accel_y;
-          m_accel_z = accel_z;
-          m_temp = temp;
-          m_status = status;
-          m_counter = counter;
-
-          // Accumulate gyro for offset calibration
-          ++m_accum_count;
-          m_accum_gyro_x += gyro_x;
-          m_accum_gyro_y += gyro_y;
-          m_accum_gyro_z += gyro_z;
-
-          // Accumulate gyro for angle integration
-          m_integ_gyro_x += (gyro_x - m_gyro_offset_x) * dt;
-          m_integ_gyro_y += (gyro_y - m_gyro_offset_y) * dt;
-          m_integ_gyro_z += (gyro_z - m_gyro_offset_z) * dt;
-        }
-      }
-      else {
-        // Print notification when checksum fails and bad data is rejected
-        std::cout << "IMU Data Checksum Invalid - " << calc_checksum << "," << imu_checksum << " - Data Ignored and Integration Time Adjusted" << std::endl;
-      }
-	  }
+    }
   }
 }
 
+/**
+  * @brief Returns the current integrated angle for the axis specified. 
+  *
+  * @param m_yaw_axis An enum indicating the axis chosen to act as the yaw axis.
+  * 
+  * @return The current integrated angle in degrees.
+  *
+  * This function returns the most recent integrated angle for the axis chosen by m_yaw_axis. 
+  * This function is most useful in situations where the yaw axis may not coincide with the IMU
+  * Z axis. 
+ **/
 double ADIS16470_IMU::GetAngle() const {
   switch (m_yaw_axis) {
     case kX:
@@ -290,112 +382,63 @@ double ADIS16470_IMU::GetAngle() const {
   }
 }
 
-double ADIS16470_IMU::GetRate() const {
-  switch (m_yaw_axis) {
-    case kX:
-      return GetRateX();
-    case kY:
-      return GetRateY();
-    case kZ:
-      return GetRateZ();
-    default:
-      return 0.0;
-  }
-}
-
+/**
+  * @brief Returns the current integrated angle for the IMU X axis.
+  *
+  * @return The current integrated angle for the IMU X axis in degrees.
+  *
+  * This function returns the most recent integrated angle for the X axis in degrees.
+  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
+ **/
 double ADIS16470_IMU::GetAngleX() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_integ_gyro_x;
 }
 
+/**
+  * @brief Returns the current integrated angle for the IMU Y axis.
+  *
+  * @return The current integrated angle for the IMU Y axis in degrees.
+  *
+  * This function returns the most recent integrated angle for the Y axis in degrees.
+  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
+ **/
 double ADIS16470_IMU::GetAngleY() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_integ_gyro_y;
 }
 
+/**
+  * @brief Returns the current integrated angle for the IMU Z axis.
+  *
+  * @return The current integrated angle for the IMU Z axis in degrees.
+  *
+  * This function returns the most recent integrated angle for the Z axis in degrees.
+  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
+ **/
 double ADIS16470_IMU::GetAngleZ() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_integ_gyro_z;
 }
 
-double ADIS16470_IMU::GetRateX() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_gyro_x;
+//TODO: Implement a selectable, instant delta angle return function.
+double ADIS16470_IMU::GetRate() const {
+  return 0;
 }
 
-double ADIS16470_IMU::GetRateY() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_gyro_y;
-}
-
-double ADIS16470_IMU::GetRateZ() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_gyro_z;
-}
-
-double ADIS16470_IMU::GetAccelX() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_accel_x;
-}
-
-double ADIS16470_IMU::GetAccelY() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_accel_y;
-}
-
-double ADIS16470_IMU::GetAccelZ() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_accel_z;
-}
-
-double ADIS16470_IMU::Getdt() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return dt;
-}
-
-double ADIS16470_IMU::GetTemperature() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_temp;
-}
-
-double ADIS16470_IMU::GetStatus() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_status;
-}
-
-double ADIS16470_IMU::GetCounter() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_counter;
-}
-
+/**
+  * @brief Builds a Sendable object to push IMU data to the driver station.
+  *
+  * This function pushes the most recent angle estimates for all axes to the driver station.
+ **/
 void ADIS16470_IMU::InitSendable(SendableBuilder& builder) {
   builder.SetSmartDashboardType("ADIS16470 IMU");
   auto gyroX = builder.GetEntry("GyroX").GetHandle();
   auto gyroY = builder.GetEntry("GyroY").GetHandle();
   auto gyroZ = builder.GetEntry("GyroZ").GetHandle();
-  auto accelX = builder.GetEntry("AccelX").GetHandle();
-  auto accelY = builder.GetEntry("AccelY").GetHandle();
-  auto accelZ = builder.GetEntry("AccelZ").GetHandle();
-  auto angleX = builder.GetEntry("AngleX").GetHandle();
-  auto angleY = builder.GetEntry("AngleY").GetHandle();
-  auto angleZ = builder.GetEntry("AngleZ").GetHandle();
-  auto temp = builder.GetEntry("Temperature").GetHandle();
-  auto dt = builder.GetEntry("dt").GetHandle();
-  auto status = builder.GetEntry("Status").GetHandle();
-  auto counter = builder.GetEntry("Counter").GetHandle();
   builder.SetUpdateTable([=]() {
-    nt::NetworkTableEntry(gyroX).SetDouble(GetRateX());
-    nt::NetworkTableEntry(gyroY).SetDouble(GetRateY());
-    nt::NetworkTableEntry(gyroZ).SetDouble(GetRateZ());
-    nt::NetworkTableEntry(accelX).SetDouble(GetAccelX());
-    nt::NetworkTableEntry(accelY).SetDouble(GetAccelY());
-    nt::NetworkTableEntry(accelZ).SetDouble(GetAccelZ());
-    nt::NetworkTableEntry(angleX).SetDouble(GetAngleX());
-    nt::NetworkTableEntry(angleY).SetDouble(GetAngleY());
-    nt::NetworkTableEntry(angleZ).SetDouble(GetAngleZ());
-    nt::NetworkTableEntry(temp).SetDouble(GetTemperature());
-    nt::NetworkTableEntry(dt).SetDouble(Getdt());
-    nt::NetworkTableEntry(status).SetDouble(GetStatus());
-    nt::NetworkTableEntry(counter).SetDouble(GetCounter());
+    nt::NetworkTableEntry(gyroX).SetDouble(GetAngleX());
+    nt::NetworkTableEntry(gyroY).SetDouble(GetAngleY());
+    nt::NetworkTableEntry(gyroZ).SetDouble(GetAngleZ());
   });
 }
