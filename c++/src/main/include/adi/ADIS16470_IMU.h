@@ -1,10 +1,10 @@
 /*----------------------------------------------------------------------------*/
-/* Copyright (c) 2016-2018 FIRST. All Rights Reserved.                        */
+/* Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.           */
 /* Open Source Software - may be modified and shared by FRC teams. The code   */
 /* must be accompanied by the FIRST BSD license file in the root directory of */
 /* the project.                                                               */
 /*                                                                            */
-/* Modified by Juan Chong - juan.chong@analog.com                             */
+/* Juan Chong - frcsupport@analog.com                                         */
 /*----------------------------------------------------------------------------*/
 
 #pragma once
@@ -136,44 +136,58 @@ class ADIS16470_IMU : public GyroBase {
  enum IMUAxis { kX, kY, kZ };
 
   /**
-  * IMU constructor on onboard SPI CS0.
+  * @brief Default constructor. Uses CS0 on the 10-pin SPI port, the yaw axis is set to the IMU Z axis,
+  * and calibration time is defaulted to 4 seconds.
   */
   ADIS16470_IMU();
 
   /**
-   * IMU constructor on the specified SPI port.
+   * @brief Customizable constructor. Allows the SPI port and CS to be customized, the yaw axis used for GetAngle()
+   * is adjustable, and initial calibration time can be modified.
    * 
    * @param yaw_axis Selects the "default" axis to use for GetAngle() and GetRate()
-   * @param port The SPI port where the IMU is connected.
+   * 
+   * @param port The SPI port and CS where the IMU is connected.
+   * 
+   * @param cal_time The calibration time that should be used on start-up.
    */
   explicit ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470CalibrationTime cal_time);
 
+  /**
+   * @brief Destructor. Kills the acquisiton loop and closes the SPI peripheral.
+   */
   ~ADIS16470_IMU();
 
   ADIS16470_IMU(ADIS16470_IMU&&) = default;
   ADIS16470_IMU& operator=(ADIS16470_IMU&&) = default;
 
+  /**
+   * @brief Switches the active SPI port to standard SPI mode, writes the command to activate the new null configuration, and re-enables auto SPI.
+   */
   void Calibrate() override;
+
+  /**
+   * @brief Switches the active SPI port to standard SPI mode, writes a new value to the NULL_CNFG register in the IMU, and re-enables auto SPI.
+   */
   bool ConfigCalTime(ADIS16470CalibrationTime new_cal_time);
 
   /**
-   * Reset the gyro.
+   * @brief Resets (zeros) the xgyro, ygyro, and zgyro angle integrations. 
    *
    * Resets the gyro accumulations to a heading of zero. This can be used if 
-   * there is significant drift in the gyro and it needs to be recalibrated
-   * after running.
+   * the "zero" orientation of the sensor needs to be changed in runtime.
    */
   void Reset() override;
 
   /**
-   * Return the actual angle in degrees that the robot is currently facing.
+   * @brief Returns the current integrated angle for the axis specified. 
    *
    * The angle is based on the current accumulator value corrected by
    * offset calibration and built-in IMU calibration. The angle is continuous, 
    * that is it will continue from 360->361 degrees. This allows algorithms 
    * that wouldn't want to see a discontinuity in the gyro output as it sweeps 
    * from 360 to 0 on the second time around. The axis returned by this 
-   * function is adjusted fased on the configured yaw_axis.
+   * function is adjusted based on the configured yaw_axis.
    *
    * @return the current heading of the robot in degrees. This heading is based
    *         on integration of the returned rate from the gyro.
@@ -181,7 +195,7 @@ class ADIS16470_IMU : public GyroBase {
   double GetAngle() const override;
 
   /**
-   * Return the IMU X-axis integrated angle in degrees.
+   * @brief Returns the IMU X-axis integrated angle in degrees.
    *
    * The angle is based on the current accumulator value corrected by
    * offset calibration and built-in IMU calibration. The angle is continuous, 
@@ -189,12 +203,12 @@ class ADIS16470_IMU : public GyroBase {
    * that wouldn't want to see a discontinuity in the gyro output as it sweeps 
    * from 360 to 0 on the second time around. 
    *
-   * @return the current accumulated value of the X-axis in degrees. 
+   * @return the current accumulated value of the IMU X-axis in degrees. 
    */
   double GetAngleX() const;
 
   /**
-   * Return the IMU Y-axis integrated angle in degrees.
+   * @brief Returns the IMU Y-axis integrated angle in degrees.
    *
    * The angle is based on the current accumulator value corrected by
    * offset calibration and built-in IMU calibration. The angle is continuous, 
@@ -202,12 +216,12 @@ class ADIS16470_IMU : public GyroBase {
    * that wouldn't want to see a discontinuity in the gyro output as it sweeps 
    * from 360 to 0 on the second time around. 
    *
-   * @return the current accumulated value of the Y-axis in degrees. 
+   * @return the current accumulated value of the IMU Y-axis in degrees. 
    */
   double GetAngleY() const;
 
   /**
-   * Return the IMU Z-axis integrated angle in degrees.
+   * @brief Returns the IMU Z-axis integrated angle in degrees.
    *
    * The angle is based on the current accumulator value corrected by
    * offset calibration and built-in IMU calibration. The angle is continuous, 
@@ -215,7 +229,7 @@ class ADIS16470_IMU : public GyroBase {
    * that wouldn't want to see a discontinuity in the gyro output as it sweeps 
    * from 360 to 0 on the second time around. 
    *
-   * @return the current accumulated value of the Z-axis in degrees. 
+   * @return the current accumulated value of the IMU Z-axis in degrees. 
    */
   double GetAngleZ() const;
 
@@ -225,14 +239,44 @@ class ADIS16470_IMU : public GyroBase {
 
  private:
 
+  /**
+  * @brief Switches to standard SPI operation. Primarily used when exiting auto SPI mode.
+  *
+  * @return A boolean indicating the success or failure of setting up the SPI peripheral in standard SPI mode.
+  */
   bool SwitchToStandardSPI();
+
+  /**
+  * @brief Switches to auto SPI operation. Primarily used when exiting standard SPI mode.
+  * 
+  * @return A boolean indicating the success or failure of setting up the SPI peripheral in auto SPI mode.
+  */
   bool SwitchToAutoSPI();
 
   // IMU yaw axis
   IMUAxis m_yaw_axis;
 
+  /**
+  * @brief Reads the contents of a specified register location over SPI. 
+  *
+  * @param reg An unsigned, 8-bit register location.
+  * 
+  * @return An unsigned, 16-bit number representing the contents of the requested register location.
+  */
   uint16_t ReadRegister(uint8_t reg);
+
+  /**
+  * @brief Writes an unsigned, 16-bit value to two adjacent, 8-bit register locations over SPI.
+  *
+  * @param reg An unsigned, 8-bit register location.
+  * 
+  * @param val An unsigned, 16-bit value to be written to the specified register location.
+  */
   void WriteRegister(uint8_t reg, uint16_t val);
+
+  /**
+  * @brief Main acquisition loop. Typically called asynchronously and free-wheels while the robot code is active. 
+  */
   void Acquire();
 
   // Integrated gyro values
@@ -246,7 +290,7 @@ class ADIS16470_IMU : public GyroBase {
   SPI *m_spi = nullptr;
   DigitalInput *m_auto_interrupt;
   
-  std::thread *m_acquire_task = nullptr;
+  std::thread m_acquire_task;
 
   mutable wpi::mutex m_mutex;
 

@@ -1,10 +1,10 @@
 /*----------------------------------------------------------------------------*/
-/* Copyright (c) 2016-2018 FIRST. All Rights Reserved.                        */
+/* Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.           */
 /* Open Source Software - may be modified and shared by FRC teams. The code   */
 /* must be accompanied by the FIRST BSD license file in the root directory of */
 /* the project.                                                               */
 /*                                                                            */
-/* Modified by Juan Chong - juan.chong@analog.com                             */
+/* Juan Chong - frcsupport@analog.com                                         */
 /*----------------------------------------------------------------------------*/
 
 #include <string>
@@ -71,6 +71,9 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
   // Configure continuous bias calibration time based on user setting
   WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
 
+  // Notify DS that IMU calibration delay is active
+  DriverStation::ReportWarning("ADIS16470 IMU Detected. Starting initial calibration delay.");
+
   // Wait for samples to accumulate internal to the IMU (110% of user-defined time)
   Wait(pow(2, m_calibration_time) / 2000 * 64 * 1.1);
 
@@ -106,9 +109,7 @@ bool ADIS16470_IMU::SwitchToStandardSPI(){
 
   if (!m_freed) {
     m_freed = true;
-    if (m_acquire_task->joinable()) m_acquire_task->join();
-    delete m_acquire_task;
-    m_acquire_task = nullptr;
+    if (m_acquire_task.joinable()) m_acquire_task.join();
   }
 
   if (m_spi != nullptr) {
@@ -133,7 +134,6 @@ bool ADIS16470_IMU::SwitchToStandardSPI(){
     DriverStation::ReportError("Could not find ADIS16470!");
     return false;
   }
-  DriverStation::ReportWarning("ADIS16470 IMU Detected. Starting calibration delay.");
   return true;
 }
 
@@ -172,7 +172,7 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
   if(m_freed) {
     // Restart acquire thread
     m_freed = false;
-    m_acquire_task = new std::thread(&ADIS16470_IMU::Acquire, this);
+    m_acquire_task = std::thread(&ADIS16470_IMU::Acquire, this);
   }
 
   // Reset gyro accumulation
@@ -276,8 +276,7 @@ void ADIS16470_IMU::Reset() {
 ADIS16470_IMU::~ADIS16470_IMU() {
   m_spi->StopAuto();
   m_freed = true;
-  if (m_acquire_task->joinable()) m_acquire_task->join();
-  delete m_acquire_task;
+  if (m_acquire_task.joinable()) m_acquire_task.join();
 }
 
 /**
@@ -359,6 +358,17 @@ void ADIS16470_IMU::Acquire() {
   }
 }
 
+/**
+  * @brief Returns the current integrated angle for the axis specified. 
+  *
+  * @param m_yaw_axis An enum indicating the axis chosen to act as the yaw axis.
+  * 
+  * @return The current integrated angle in degrees.
+  *
+  * This function returns the most recent integrated angle for the axis chosen by m_yaw_axis. 
+  * This function is most useful in situations where the yaw axis may not coincide with the IMU
+  * Z axis. 
+ **/
 double ADIS16470_IMU::GetAngle() const {
   switch (m_yaw_axis) {
     case kX:
@@ -372,25 +382,55 @@ double ADIS16470_IMU::GetAngle() const {
   }
 }
 
+/**
+  * @brief Returns the current integrated angle for the IMU X axis.
+  *
+  * @return The current integrated angle for the IMU X axis in degrees.
+  *
+  * This function returns the most recent integrated angle for the X axis in degrees.
+  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
+ **/
 double ADIS16470_IMU::GetAngleX() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_integ_gyro_x;
 }
 
+/**
+  * @brief Returns the current integrated angle for the IMU Y axis.
+  *
+  * @return The current integrated angle for the IMU Y axis in degrees.
+  *
+  * This function returns the most recent integrated angle for the Y axis in degrees.
+  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
+ **/
 double ADIS16470_IMU::GetAngleY() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_integ_gyro_y;
 }
 
+/**
+  * @brief Returns the current integrated angle for the IMU Z axis.
+  *
+  * @return The current integrated angle for the IMU Z axis in degrees.
+  *
+  * This function returns the most recent integrated angle for the Z axis in degrees.
+  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
+ **/
 double ADIS16470_IMU::GetAngleZ() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_integ_gyro_z;
 }
 
+//TODO: Implement a selectable, instant delta angle return function.
 double ADIS16470_IMU::GetRate() const {
   return 0;
 }
 
+/**
+  * @brief Builds a Sendable object to push IMU data to the driver station.
+  *
+  * This function pushes the most recent angle estimates for all axes to the driver station.
+ **/
 void ADIS16470_IMU::InitSendable(SendableBuilder& builder) {
   builder.SetSmartDashboardType("ADIS16470 IMU");
   auto gyroX = builder.GetEntry("GyroX").GetHandle();
