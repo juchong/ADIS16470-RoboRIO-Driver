@@ -239,7 +239,7 @@ void ADIS16470_IMU::Calibrate() {
   SwitchToAutoSPI();
 }
 
-int ADIS16470_IMU::SwitchYawAxis(IMUAxis yaw_axis) {
+int ADIS16470_IMU::SetYawAxis(IMUAxis yaw_axis) {
   if(m_yaw_axis == yaw_axis)
     return 1; 
   if(!SwitchToStandardSPI())
@@ -367,7 +367,7 @@ void ADIS16470_IMU::Acquire() {
     for (int i = 0; i < data_to_read; i += dataset_len) {
       // Timestamp is at buffer[i]
       m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
-      // Scale 32-bit data
+      // Scale sensor data
       delta_angle = (ToInt(&buffer[i + 3]) * delta_angle_sf) / (500.0 / (buffer[i] - previous_timestamp));
       gyro_x = (BuffToShort(&buffer[i + 7]) / 10.0);
       gyro_y = (BuffToShort(&buffer[i + 9]) / 10.0);
@@ -376,13 +376,15 @@ void ADIS16470_IMU::Acquire() {
       accel_y = (BuffToShort(&buffer[i + 15]) / 800.0);
       accel_z = (BuffToShort(&buffer[i + 17]) / 800.0);
 
-      gyro_x_si = gyro_x * 0.0174532;
-      gyro_y_si = gyro_y * 0.0174532;
-      gyro_z_si = gyro_z * 0.0174532;
-      accel_x_si = accel_x * 9.81;
-      accel_y_si = accel_y * 9.81;
-      accel_z_si = accel_z * 9.81;
+      // Convert scaled sensor data to SI units
+      gyro_x_si = gyro_x * deg_to_rad;
+      gyro_y_si = gyro_y * deg_to_rad;
+      gyro_z_si = gyro_z * deg_to_rad;
+      accel_x_si = accel_x * grav;
+      accel_y_si = accel_y * grav;
+      accel_z_si = accel_z * grav;
 
+      // Store timestamp for next iteration
       previous_timestamp = buffer[i];
 
       /*
@@ -397,7 +399,6 @@ void ADIS16470_IMU::Acquire() {
       accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
       compAngleX = accelAngleX;
       compAngleY = accelAngleY;
-      first_run = false;
       }
       else {
       // Process X angle
@@ -415,24 +416,30 @@ void ADIS16470_IMU::Acquire() {
       {
         std::lock_guard<wpi::mutex> sync(m_mutex);
         // Push data to global variables
-        m_integ_angle += delta_angle;
+        if(first_run) {
+          // Don't accumulate first run. previous_timestamp will be "very" old and the integration will end up way off
+          m_integ_angle = 0.0;
+        }
+        else {
+          m_integ_angle += delta_angle;
+        }
         m_gyro_x = gyro_x;
         m_gyro_y = gyro_y;
         m_gyro_z = gyro_z;
         m_accel_x = accel_x;
         m_accel_y = accel_y;
         m_accel_z = accel_z;
-        m_compAngleX = compAngleX * 57.2957795;
-        m_compAngleY = compAngleY * 57.2957795;
-        m_accelAngleX = accelAngleX * 57.2957795;
-        m_accelAngleY = accelAngleY * 57.2957795;
+        m_compAngleX = compAngleX * rad_to_deg;
+        m_compAngleY = compAngleY * rad_to_deg;
+        m_accelAngleX = accelAngleX * rad_to_deg;
+        m_accelAngleY = accelAngleY * rad_to_deg;
       }
 
       /*
       // DEBUG: Print accumulated values
       std::cout << m_integ_gyro_x << "," << m_integ_gyro_y << "," << m_integ_gyro_z << std::endl;
       */
-
+      first_run = false;
     }
   }
 }
@@ -541,22 +548,22 @@ double ADIS16470_IMU::GetAccelInstantZ() const {
   return m_accel_z;
 }
 
-double ADIS16470_IMU::GetXCompAngle() const {
+double ADIS16470_IMU::GetXComplementaryAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_compAngleX;
 }
 
-double ADIS16470_IMU::GetYCompAngle() const {
+double ADIS16470_IMU::GetYComplementaryAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_compAngleY;
 }
 
-double ADIS16470_IMU::GetXFilteredAngle() const {
+double ADIS16470_IMU::GetXFilteredAccelAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_accelAngleX;
 }
 
-double ADIS16470_IMU::GetYFilteredAngle() const {
+double ADIS16470_IMU::GetYFilteredAccelAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_accelAngleY;
 }

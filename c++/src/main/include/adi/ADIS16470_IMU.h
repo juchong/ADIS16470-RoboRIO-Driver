@@ -159,6 +159,9 @@ FLASH_CNT
 
 /* ADIS16470 Constants */
 const double delta_angle_sf = 2160.0 / 2147483648.0;
+const double rad_to_deg = 57.2957795;
+const double deg_to_rad = 0.0174532;
+const double grav = 9.81;
 
 /**
  * Use DMA SPI to read rate and acceleration data from the ADIS16470 IMU and return the
@@ -251,13 +254,13 @@ class ADIS16470_IMU : public GyroBase {
 
   double GetAccelInstantZ() const;
   
-  double GetXCompAngle() const;
+  double GetXComplementaryAngle() const;
 
-  double GetYCompAngle() const;
+  double GetYComplementaryAngle() const;
 
-  double GetXFilteredAngle() const;
+  double GetXFilteredAccelAngle() const;
 
-  double GetYFilteredAngle() const;
+  double GetYFilteredAccelAngle() const;
 
   IMUAxis GetYawAxis() const;
 
@@ -279,7 +282,7 @@ class ADIS16470_IMU : public GyroBase {
   */
   bool SwitchToAutoSPI();
 
-  int SwitchYawAxis(IMUAxis yaw_axis);
+  int SetYawAxis(IMUAxis yaw_axis);
 
   // IMU yaw axis
   IMUAxis m_yaw_axis;
