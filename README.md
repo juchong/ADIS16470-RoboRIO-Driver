@@ -8,10 +8,11 @@ These libraries allow mentors, students, and engineers to quickly get started us
 </p>
 
 To simplify the library as much as possible for the 2020 season, only a few, key IMU features are exposed to the user by default. 
-- X, Y, and Z (Pitch, Roll, and Yaw) Integrated Gyroscope Outputs
-  - Registers read from the IMU can easily be customized for each application.
+- X, Y, or Z (Pitch, Roll, or Yaw) Integrated Gyroscope Output (user-selectable)
+  - Registers read from the IMU can easily be customized for each application
 - IMU register reads and writes using discrete SPI transactions and the Auto SPI peripheral built into the FRC 2020 RoboRIO image
 - IMU status, integration resetting, and recalibration routines
+- Complementary filter built into the library
 
 Tutorial videos, how-to guides, and additional resources can be found on the [ADI FIRST Robotics Wiki Page](https://wiki.analog.com/first/first_robotics_donation_resources).
 
