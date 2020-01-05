@@ -99,21 +99,61 @@ static constexpr uint8_t USER_SCR3      =   0x7A;  //User scratch register 3
 static constexpr uint8_t FLSHCNT_LOW    =   0x7C;  //Flash update count, lower word 
 static constexpr uint8_t FLSHCNT_HIGH   =   0x7E;  //Flash update count, upper word 
 
-/* ADIS16470 Auto SPI Data Packet */
-static constexpr uint8_t m_autospi_packet [14] = {
+/* ADIS16470 Auto SPI Data Packets */
+static constexpr uint8_t m_autospi_x_packet [16] = {
 X_DELTANG_OUT, 
 FLASH_CNT, 
 X_DELTANG_LOW, 
 FLASH_CNT, 
+X_GYRO_OUT,
+FLASH_CNT, 
+Y_GYRO_OUT, 
+FLASH_CNT, 
+Z_GYRO_OUT, 
+FLASH_CNT, 
+X_ACCL_OUT, 
+FLASH_CNT, 
+Y_ACCL_OUT, 
+FLASH_CNT,
+Z_ACCL_OUT,
+FLASH_CNT
+};
+
+static constexpr uint8_t m_autospi_y_packet [16] = {
 Y_DELTANG_OUT, 
 FLASH_CNT, 
 Y_DELTANG_LOW, 
 FLASH_CNT, 
+X_GYRO_OUT,
+FLASH_CNT, 
+Y_GYRO_OUT, 
+FLASH_CNT, 
+Z_GYRO_OUT, 
+FLASH_CNT, 
+X_ACCL_OUT, 
+FLASH_CNT, 
+Y_ACCL_OUT, 
+FLASH_CNT,
+Z_ACCL_OUT,
+FLASH_CNT
+};
+
+static constexpr uint8_t m_autospi_z_packet [16] = {
 Z_DELTANG_OUT, 
 FLASH_CNT, 
 Z_DELTANG_LOW, 
 FLASH_CNT, 
-PROD_ID, 
+X_GYRO_OUT,
+FLASH_CNT, 
+Y_GYRO_OUT, 
+FLASH_CNT, 
+Z_GYRO_OUT, 
+FLASH_CNT, 
+X_ACCL_OUT, 
+FLASH_CNT, 
+Y_ACCL_OUT, 
+FLASH_CNT,
+Z_ACCL_OUT,
 FLASH_CNT
 };
 

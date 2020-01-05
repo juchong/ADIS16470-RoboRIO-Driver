@@ -65,9 +65,9 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
   // Set IMU internal decimation to 400 SPS
   WriteRegister(DEC_RATE, 0x0004);
   // Set data ready polarity (HIGH = Good Data), gSense Compensation, PoP
-  WriteRegister(MSC_CTRL, 0x00C1);
+  WriteRegister(MSC_CTRL, 0x0001);
   // Configure IMU internal Bartlett filter
-  WriteRegister(FILT_CTRL, 0x0000);
+  WriteRegister(FILT_CTRL, 0x0006);
   // Configure continuous bias calibration time based on user setting
   WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
 
@@ -160,9 +160,24 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
 
   m_auto_interrupt = new DigitalInput(26);
 
-  // Configure DMA SPI
+  // Configure DMA SPI and pick auto SPI packet message
   m_spi->InitAuto(8200);
-  m_spi->SetAutoTransmitData(m_autospi_packet, 0);
+
+  // Pick auto spi yaw axis
+  switch (m_yaw_axis) {
+  case kX:
+    m_spi->SetAutoTransmitData(m_autospi_x_packet, 2);
+    return;
+  case kY:
+    m_spi->SetAutoTransmitData(m_autospi_y_packet, 2);
+    return;
+  case kZ:
+    m_spi->SetAutoTransmitData(m_autospi_z_packet, 2);
+    return;
+  default:
+    return 0.0;
+  }
+  
   //m_spi->ConfigureAutoStall(static_cast<HAL_SPIPort>(m_spi_port), 5, 1000, 1);
   m_spi->ConfigureAutoStall(HAL_SPI_kOnboardCS0, 5, 1000, 1);
 
@@ -296,14 +311,14 @@ ADIS16470_IMU::~ADIS16470_IMU() {
  **/
 void ADIS16470_IMU::Acquire() {
   // Set data packet length
-  const int dataset_len = 15; // 14 data points + timestamp
+  const int dataset_len = 19; // 18 data points + timestamp
   const int num_buffers = 30;
 
   // This buffer can contain many datasets
   uint32_t buffer[dataset_len * num_buffers];
   int data_count, data_remainder, data_to_read = 0;
   uint32_t previous_timestamp = 0;
-  double delta_x, delta_y, delta_z;
+  double delta_angle, gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z;
 
   while (!m_freed) {
 
@@ -331,9 +346,7 @@ void ADIS16470_IMU::Acquire() {
     for (int i = 0; i < data_to_read; i += dataset_len) {
       // Timestamp is at buffer[i]
       // Scale 32-bit data and adjust for IMU decimation seting (2000 / 4 + 1 = 400SPS)
-      delta_x = (ToInt(&buffer[i + 3]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
-      delta_y = (ToInt(&buffer[i + 7]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
-      delta_z = (ToInt(&buffer[i + 11]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
+      delta_angle = (ToInt(&buffer[i + 3]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
       previous_timestamp = buffer[i];
 
       /*
@@ -344,9 +357,7 @@ void ADIS16470_IMU::Acquire() {
       {
         std::lock_guard<wpi::mutex> sync(m_mutex);
         // Accumulate gyro for angle integration
-        m_integ_gyro_x += delta_x;
-        m_integ_gyro_y += delta_y;
-        m_integ_gyro_z += delta_z;
+        m_integ_angle += delta_angle;
       }
 
       /*
