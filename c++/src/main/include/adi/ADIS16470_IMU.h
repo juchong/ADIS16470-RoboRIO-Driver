@@ -157,6 +157,9 @@ Z_ACCL_OUT,
 FLASH_CNT
 };
 
+/* ADIS16470 Constants */
+const double delta_angle_sf = 2160.0 / 2147483648.0;
+
 /**
  * Use DMA SPI to read rate and acceleration data from the ADIS16470 IMU and return the
  * robot's heading relative to a starting position and instant measurements
@@ -209,7 +212,7 @@ class ADIS16470_IMU : public GyroBase {
   /**
    * @brief Switches the active SPI port to standard SPI mode, writes a new value to the NULL_CNFG register in the IMU, and re-enables auto SPI.
    */
-  bool ConfigCalTime(ADIS16470CalibrationTime new_cal_time);
+  int ConfigCalTime(ADIS16470CalibrationTime new_cal_time);
 
   /**
    * @brief Resets (zeros) the xgyro, ygyro, and zgyro angle integrations. 
@@ -234,46 +237,29 @@ class ADIS16470_IMU : public GyroBase {
    */
   double GetAngle() const override;
 
-  /**
-   * @brief Returns the IMU X-axis integrated angle in degrees.
-   *
-   * The angle is based on the current accumulator value corrected by
-   * offset calibration and built-in IMU calibration. The angle is continuous, 
-   * that is it will continue from 360->361 degrees. This allows algorithms 
-   * that wouldn't want to see a discontinuity in the gyro output as it sweeps 
-   * from 360 to 0 on the second time around. 
-   *
-   * @return the current accumulated value of the IMU X-axis in degrees. 
-   */
-  double GetAngleX() const;
-
-  /**
-   * @brief Returns the IMU Y-axis integrated angle in degrees.
-   *
-   * The angle is based on the current accumulator value corrected by
-   * offset calibration and built-in IMU calibration. The angle is continuous, 
-   * that is it will continue from 360->361 degrees. This allows algorithms 
-   * that wouldn't want to see a discontinuity in the gyro output as it sweeps 
-   * from 360 to 0 on the second time around. 
-   *
-   * @return the current accumulated value of the IMU Y-axis in degrees. 
-   */
-  double GetAngleY() const;
-
-  /**
-   * @brief Returns the IMU Z-axis integrated angle in degrees.
-   *
-   * The angle is based on the current accumulator value corrected by
-   * offset calibration and built-in IMU calibration. The angle is continuous, 
-   * that is it will continue from 360->361 degrees. This allows algorithms 
-   * that wouldn't want to see a discontinuity in the gyro output as it sweeps 
-   * from 360 to 0 on the second time around. 
-   *
-   * @return the current accumulated value of the IMU Z-axis in degrees. 
-   */
-  double GetAngleZ() const;
-
   double GetRate() const;
+
+  double GetGyroInstantX() const;
+
+  double GetGyroInstantY() const;
+
+  double GetGyroInstantZ() const;
+
+  double GetAccelInstantX() const;
+
+  double GetAccelInstantY() const;
+
+  double GetAccelInstantZ() const;
+  
+  double GetXCompAngle() const;
+
+  double GetYCompAngle() const;
+
+  double GetXFilteredAngle() const;
+
+  double GetYFilteredAngle() const;
+
+  IMUAxis GetYawAxis() const;
 
   void InitSendable(SendableBuilder& builder) override;
 
@@ -292,6 +278,8 @@ class ADIS16470_IMU : public GyroBase {
   * @return A boolean indicating the success or failure of setting up the SPI peripheral in auto SPI mode.
   */
   bool SwitchToAutoSPI();
+
+  int SwitchYawAxis(IMUAxis yaw_axis);
 
   // IMU yaw axis
   IMUAxis m_yaw_axis;
@@ -319,10 +307,25 @@ class ADIS16470_IMU : public GyroBase {
   */
   void Acquire();
 
-  // Integrated gyro values
-  double m_integ_gyro_x = 0.0;
-  double m_integ_gyro_y = 0.0;
-  double m_integ_gyro_z = 0.0;
+  // Integrated gyro value
+  double m_integ_angle = 0.0;
+
+  // Instant raw outputs
+  double m_gyro_x, m_gyro_y, m_gyro_z, m_accel_x, m_accel_y, m_accel_z = 0.0;
+
+  // Complementary filter variables
+  double m_tau = 1;
+  double m_dt, m_alpha = 0.0;
+  double m_compAngleX, m_compAngleY, m_accelAngleX, m_accelAngleY = 0.0;
+
+  //Complementary filter functions
+  double FormatFastConverge(double compAngle, double accAngle);
+
+  double FormatRange0to2PI(double compAngle);
+
+  double FormatAccelRange(double accelAngle, double accelZ);
+
+  double CompFilterProcess(double compAngle, double accelAngle, double omega);
 
   std::atomic_bool m_freed;
   SPI::Port m_spi_port;
