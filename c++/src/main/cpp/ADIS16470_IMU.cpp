@@ -395,23 +395,23 @@ void ADIS16470_IMU::Acquire() {
       m_alpha = m_tau / (m_tau + m_dt);
 
       if (first_run) {
-      accelAngleX = atan2f(accel_x_si, sqrtf((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
-      accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
-      compAngleX = accelAngleX;
-      compAngleY = accelAngleY;
+        accelAngleX = atan2f(accel_x_si, sqrtf((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
+        accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
+        compAngleX = accelAngleX;
+        compAngleY = accelAngleY;
       }
       else {
-      // Process X angle
-      accelAngleX = atan2f(accel_x_si, sqrtf((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
-      accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
-      accelAngleX = FormatAccelRange(accelAngleX, accel_z_si);
-      accelAngleY = FormatAccelRange(accelAngleY, accel_z_si);
-      compAngleX = CompFilterProcess(compAngleX, accelAngleX, -gyro_y_si);
-      compAngleY = CompFilterProcess(compAngleY, accelAngleY, gyro_x_si);
+        // Process X angle
+        accelAngleX = atan2f(accel_x_si, sqrtf((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
+        accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
+        accelAngleX = FormatAccelRange(accelAngleX, accel_z_si);
+        accelAngleY = FormatAccelRange(accelAngleY, accel_z_si);
+        compAngleX = CompFilterProcess(compAngleX, accelAngleX, -gyro_y_si);
+        compAngleY = CompFilterProcess(compAngleY, accelAngleY, gyro_x_si);
       }
 
       // DEBUG: Print accumulated values
-      //std::cout << m_compAngleX << "," << m_compAngleY << "," << m_dt << std::endl;
+      //std::cout << m_compAngleX << "," << m_compAngleY << std::endl;
 
       {
         std::lock_guard<wpi::mutex> sync(m_mutex);
@@ -476,11 +476,12 @@ double ADIS16470_IMU::FormatAccelRange(double accelAngle, double accelZ) {
 }
 
 double ADIS16470_IMU::CompFilterProcess(double compAngle, double accelAngle, double omega) {
-  double gyroAngle;
   compAngle = FormatFastConverge(compAngle, accelAngle);
-  gyroAngle = compAngle + omega * m_dt;
-  compAngle = m_alpha * gyroAngle + (1.0 - m_alpha) * accelAngle;
+  compAngle = m_alpha * (compAngle + omega * m_dt) + (1.0 - m_alpha) * accelAngle;
   compAngle = FormatRange0to2PI(compAngle);
+  if(compAngle > M_PI) {
+    compAngle = compAngle - 2.0 * M_PI;
+  }
   return compAngle;
 }
 
