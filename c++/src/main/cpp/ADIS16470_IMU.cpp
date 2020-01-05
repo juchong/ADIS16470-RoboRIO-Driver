@@ -32,7 +32,7 @@ static inline uint16_t BuffToUShort(const uint32_t* buf) {
 }
 
 static inline int16_t BuffToShort(const uint32_t* buf) {
-  return (int16_t)(((uint16_t)(buf[0]) << 8) | buf[1]);
+  return ((int16_t)(buf[0]) << 8) | buf[1];
 }
 
 static inline uint16_t ToUShort(const uint8_t* buf) {
@@ -71,11 +71,11 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
   }
 
   // Set IMU internal decimation to 400 SPS
-  WriteRegister(DEC_RATE, 0x0004);
+  WriteRegister(DEC_RATE, 0x0000);
   // Set data ready polarity (HIGH = Good Data), gSense Compensation, PoP
-  WriteRegister(MSC_CTRL, 0x00C1);
+  WriteRegister(MSC_CTRL, 0x0001);
   // Configure IMU internal Bartlett filter
-  WriteRegister(FILT_CTRL, 0x0000);
+  WriteRegister(FILT_CTRL, 0x0004);
   // Configure continuous bias calibration time based on user setting
   WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
 
@@ -340,22 +340,21 @@ void ADIS16470_IMU::Acquire() {
       // Timestamp is at buffer[i]
       // Scale 32-bit data and adjust for IMU decimation seting (2000 / 4 + 1 = 400SPS)
       status_imu = (BuffToUShort(&buffer[i + 3]));
-      gyro_x = (BuffToShort(&buffer[i + 5]) / 10.0);
-      gyro_y = (BuffToShort(&buffer[i + 7]) / 10.0);
-      gyro_z = (BuffToShort(&buffer[i + 9]) / 10.0);
+      gyro_x = (BuffToShort(&buffer[i + 5])) / 10.0;
+      gyro_y = (BuffToShort(&buffer[i + 7])) / 10.0;
+      gyro_z = (BuffToShort(&buffer[i + 9])) / 10.0;
       accel_x = (BuffToShort(&buffer[i + 11]) / 800.0);
       accel_y = (BuffToShort(&buffer[i + 13]) / 800.0);
       accel_z = (BuffToShort(&buffer[i + 15]) / 800.0);
       data_count_imu = (BuffToUShort(&buffer[i + 17]));
 
-      delta_x = gyro_x * ((buffer[i] - previous_timestamp) / 1000000.0);
-      delta_y = gyro_y * ((buffer[i] - previous_timestamp) / 1000000.0);
-      delta_z = gyro_z * ((buffer[i] - previous_timestamp) / 1000000.0);
-
       // DEBUG: Print timestamp and delta values
       //std::cout << previous_timestamp << "," << delta_x << "," << delta_y << "," << delta_z << std::endl;
       //std::cout << previous_timestamp << "," << gyro_x << "," << gyro_y << "," << gyro_z << std::endl;
       
+      delta_x = gyro_x * ((buffer[i] - previous_timestamp) / 1000000.0);
+      delta_y = gyro_y * ((buffer[i] - previous_timestamp) / 1000000.0);
+      delta_z = gyro_z * ((buffer[i] - previous_timestamp) / 1000000.0);
 
       previous_timestamp = buffer[i];
 

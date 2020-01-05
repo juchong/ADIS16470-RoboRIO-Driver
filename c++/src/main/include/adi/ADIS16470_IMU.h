@@ -102,7 +102,7 @@ static constexpr uint8_t FLSHCNT_HIGH   =   0x7E;  //Flash update count, upper w
 
 /* ADIS16470 Auto SPI Data Packet */
 static constexpr uint8_t m_autospi_packet [16] = {
-DIAG_STAT,
+PROD_ID,
 FLASH_CNT,
 X_GYRO_OUT,
 FLASH_CNT,
