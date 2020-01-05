@@ -27,6 +27,14 @@ static inline int32_t ToInt(const uint32_t *buf){
   return (int32_t)( (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3] );
 }
 
+static inline uint16_t BuffToUShort(const uint32_t* buf) {
+  return ((uint16_t)(buf[0]) << 8) | buf[1];
+}
+
+static inline int16_t BuffToShort(const uint32_t* buf) {
+  return ((int16_t)(buf[0]) << 8) | buf[1];
+}
+
 static inline uint16_t ToUShort(const uint8_t* buf) {
   return ((uint16_t)(buf[0]) << 8) | buf[1];
 }
@@ -62,12 +70,12 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
     return;
   }
 
-  // Set IMU internal decimation to 400 SPS
-  WriteRegister(DEC_RATE, 0x0004);
+  // Set IMU internal decimation to 2000 SPS
+  WriteRegister(DEC_RATE, 0x0000);
   // Set data ready polarity (HIGH = Good Data), gSense Compensation, PoP
-  WriteRegister(MSC_CTRL, 0x00C1);
+  WriteRegister(MSC_CTRL, 0x0001);
   // Configure IMU internal Bartlett filter
-  WriteRegister(FILT_CTRL, 0x0000);
+  WriteRegister(FILT_CTRL, 0x0002);
   // Configure continuous bias calibration time based on user setting
   WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
 
@@ -160,9 +168,22 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
 
   m_auto_interrupt = new DigitalInput(26);
 
-  // Configure DMA SPI
+  // Configure DMA SPI and pick auto SPI packet message
   m_spi->InitAuto(8200);
-  m_spi->SetAutoTransmitData(m_autospi_packet, 0);
+
+  // Pick auto spi yaw axis
+  switch (m_yaw_axis) {
+  case kX:
+    m_spi->SetAutoTransmitData(m_autospi_x_packet, 2);
+    break;
+  case kY:
+    m_spi->SetAutoTransmitData(m_autospi_y_packet, 2);
+    break;
+  default:
+    m_spi->SetAutoTransmitData(m_autospi_z_packet, 2);
+    break;
+  }
+  
   //m_spi->ConfigureAutoStall(static_cast<HAL_SPIPort>(m_spi_port), 5, 1000, 1);
   m_spi->ConfigureAutoStall(HAL_SPI_kOnboardCS0, 5, 1000, 1);
 
@@ -186,20 +207,22 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
   *
   * @param new_cal_time Calibration time to be set.
   * 
-  * @return A boolean indicating the success or failure of writing the new NULL_CNFG setting and returning to auto SPI mode.
+  * @return An int indicating the success or failure of writing the new NULL_CNFG setting and returning to auto SPI mode. 0 = Success, 1 = No Change, 2 = Failure
   *
   * This function enters standard SPI mode, writes a new NULL_CNFG setting to the IMU, and re-enters auto SPI mode. 
   * This function does not include a blocking sleep, so the user must keep track of the elapsed offset calibration time
   * themselves. After waiting the configured calibration time, the Calibrate() function should be called to activate the new
   * offset calibration. 
  **/
-bool ADIS16470_IMU::ConfigCalTime(ADIS16470CalibrationTime new_cal_time) { 
+int ADIS16470_IMU::ConfigCalTime(ADIS16470CalibrationTime new_cal_time) { 
+  if(m_calibration_time == (uint16_t)new_cal_time)
+    return 1;
   if(!SwitchToStandardSPI())
-    return false;
+    return 2;
   m_calibration_time = (uint16_t)new_cal_time;
   WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
   SwitchToAutoSPI();
-  return true;
+  return 0;
 }
 
 /**
@@ -214,6 +237,16 @@ void ADIS16470_IMU::Calibrate() {
     return;
   WriteRegister(GLOB_CMD, 0x0001);
   SwitchToAutoSPI();
+}
+
+int ADIS16470_IMU::SwitchYawAxis(IMUAxis yaw_axis) {
+  if(m_yaw_axis == yaw_axis)
+    return 1; 
+  if(!SwitchToStandardSPI())
+    return 2;
+  m_yaw_axis = yaw_axis;
+  SwitchToAutoSPI();
+  return 0;
 }
 
 /**
@@ -268,9 +301,7 @@ void ADIS16470_IMU::WriteRegister(uint8_t reg, uint16_t val) {
  **/
 void ADIS16470_IMU::Reset() {
   std::lock_guard<wpi::mutex> sync(m_mutex);
-  m_integ_gyro_x = 0.0;
-  m_integ_gyro_y = 0.0;
-  m_integ_gyro_z = 0.0;
+  m_integ_angle = 0.0;
 }
 
 ADIS16470_IMU::~ADIS16470_IMU() {
@@ -293,17 +324,22 @@ ADIS16470_IMU::~ADIS16470_IMU() {
   * x = delta x (32-bit x_1 = highest bit)
   * y = delta y (32-bit y_1 = highest bit)
   * z = delta z (32-bit z_1 = highest bit)
+  * 
+  * Complementary filter code was borrowed from https://github.com/tcleg/Six_Axis_Complementary_Filter
  **/
 void ADIS16470_IMU::Acquire() {
   // Set data packet length
-  const int dataset_len = 15; // 14 data points + timestamp
+  const int dataset_len = 19; // 18 data points + timestamp
   const int num_buffers = 30;
 
   // This buffer can contain many datasets
   uint32_t buffer[dataset_len * num_buffers];
   int data_count, data_remainder, data_to_read = 0;
   uint32_t previous_timestamp = 0;
-  double delta_x, delta_y, delta_z;
+  double delta_angle, gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z;
+  double gyro_x_si, gyro_y_si, gyro_z_si, accel_x_si, accel_y_si, accel_z_si;
+  double compAngleX, compAngleY, accelAngleX, accelAngleY = 0.0;
+  bool first_run = true;
 
   while (!m_freed) {
 
@@ -330,10 +366,23 @@ void ADIS16470_IMU::Acquire() {
     // Could be multiple data sets in the buffer. Handle each one.
     for (int i = 0; i < data_to_read; i += dataset_len) {
       // Timestamp is at buffer[i]
-      // Scale 32-bit data and adjust for IMU decimation seting (2000 / 4 + 1 = 400SPS)
-      delta_x = (ToInt(&buffer[i + 3]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
-      delta_y = (ToInt(&buffer[i + 7]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
-      delta_z = (ToInt(&buffer[i + 11]) * (2160.0 / 2147483648.0)) / ((10000.0 / (buffer[i] - previous_timestamp)) / 4.0);
+      m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
+      // Scale 32-bit data
+      delta_angle = (ToInt(&buffer[i + 3]) * delta_angle_sf) / (500.0 / (buffer[i] - previous_timestamp));
+      gyro_x = (BuffToShort(&buffer[i + 7]) / 10.0);
+      gyro_y = (BuffToShort(&buffer[i + 9]) / 10.0);
+      gyro_z = (BuffToShort(&buffer[i + 11]) / 10.0);
+      accel_x = (BuffToShort(&buffer[i + 13]) / 800.0);
+      accel_y = (BuffToShort(&buffer[i + 15]) / 800.0);
+      accel_z = (BuffToShort(&buffer[i + 17]) / 800.0);
+
+      gyro_x_si = gyro_x * 0.0174532;
+      gyro_y_si = gyro_y * 0.0174532;
+      gyro_z_si = gyro_z * 0.0174532;
+      accel_x_si = accel_x * 9.81;
+      accel_y_si = accel_y * 9.81;
+      accel_z_si = accel_z * 9.81;
+
       previous_timestamp = buffer[i];
 
       /*
@@ -341,12 +390,42 @@ void ADIS16470_IMU::Acquire() {
       std::cout << previous_timestamp << "," << delta_x << "," << delta_y << "," << delta_z << std::endl;
       */
 
+      m_alpha = m_tau / (m_tau + m_dt);
+
+      if (first_run) {
+      accelAngleX = atan2f(accel_x_si, sqrtf((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
+      accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
+      compAngleX = accelAngleX;
+      compAngleY = accelAngleY;
+      first_run = false;
+      }
+      else {
+      // Process X angle
+      accelAngleX = atan2f(accel_x_si, sqrtf((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
+      accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
+      accelAngleX = FormatAccelRange(accelAngleX, accel_z_si);
+      accelAngleY = FormatAccelRange(accelAngleY, accel_z_si);
+      compAngleX = CompFilterProcess(compAngleX, accelAngleX, -gyro_y_si);
+      compAngleY = CompFilterProcess(compAngleY, accelAngleY, gyro_x_si);
+      }
+
+      // DEBUG: Print accumulated values
+      //std::cout << m_compAngleX << "," << m_compAngleY << "," << m_dt << std::endl;
+
       {
         std::lock_guard<wpi::mutex> sync(m_mutex);
-        // Accumulate gyro for angle integration
-        m_integ_gyro_x += delta_x;
-        m_integ_gyro_y += delta_y;
-        m_integ_gyro_z += delta_z;
+        // Push data to global variables
+        m_integ_angle += delta_angle;
+        m_gyro_x = gyro_x;
+        m_gyro_y = gyro_y;
+        m_gyro_z = gyro_z;
+        m_accel_x = accel_x;
+        m_accel_y = accel_y;
+        m_accel_z = accel_z;
+        m_compAngleX = compAngleX * 57.2957795;
+        m_compAngleY = compAngleY * 57.2957795;
+        m_accelAngleX = accelAngleX * 57.2957795;
+        m_accelAngleY = accelAngleY * 57.2957795;
       }
 
       /*
@@ -356,6 +435,46 @@ void ADIS16470_IMU::Acquire() {
 
     }
   }
+}
+
+/* Complementary filter functions */
+double ADIS16470_IMU::FormatFastConverge(double compAngle, double accAngle) {
+  if(compAngle > accAngle + M_PI) {
+    compAngle = compAngle - 2.0 * M_PI;
+  }
+  else if (accAngle > compAngle + M_PI) {
+    compAngle = compAngle + 2.0 * M_PI;
+  }
+  return compAngle;  
+}
+
+double ADIS16470_IMU::FormatRange0to2PI(double compAngle) {
+  while(compAngle >= 2 * M_PI) {
+    compAngle = compAngle - 2.0 * M_PI;
+  }
+  while(compAngle < 0.0) {
+    compAngle = compAngle + 2.0 * M_PI;
+  }
+  return compAngle;
+}
+
+double ADIS16470_IMU::FormatAccelRange(double accelAngle, double accelZ) {
+  if(accelZ < 0.0) {
+    accelAngle = M_PI - accelAngle;
+  }
+  else if(accelZ > 0.0 && accelAngle < 0.0) {
+    accelAngle = 2.0 * M_PI + accelAngle;
+  }
+  return accelAngle;
+}
+
+double ADIS16470_IMU::CompFilterProcess(double compAngle, double accelAngle, double omega) {
+  double gyroAngle;
+  compAngle = FormatFastConverge(compAngle, accelAngle);
+  gyroAngle = compAngle + omega * m_dt;
+  compAngle = m_alpha * gyroAngle + (1.0 - m_alpha) * accelAngle;
+  compAngle = FormatRange0to2PI(compAngle);
+  return compAngle;
 }
 
 /**
@@ -370,60 +489,76 @@ void ADIS16470_IMU::Acquire() {
   * Z axis. 
  **/
 double ADIS16470_IMU::GetAngle() const {
-  switch (m_yaw_axis) {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_integ_angle;
+}
+
+double ADIS16470_IMU::GetRate() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+    switch (m_yaw_axis) {
     case kX:
-      return GetAngleX();
+      return m_gyro_x;
     case kY:
-      return GetAngleY();
+      return m_gyro_y;
     case kZ:
-      return GetAngleZ();
+      return m_gyro_z;
     default:
       return 0.0;
   }
 }
 
-/**
-  * @brief Returns the current integrated angle for the IMU X axis.
-  *
-  * @return The current integrated angle for the IMU X axis in degrees.
-  *
-  * This function returns the most recent integrated angle for the X axis in degrees.
-  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
- **/
-double ADIS16470_IMU::GetAngleX() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_integ_gyro_x;
+ADIS16470_IMU::IMUAxis ADIS16470_IMU::GetYawAxis() const {
+  return m_yaw_axis;
 }
 
-/**
-  * @brief Returns the current integrated angle for the IMU Y axis.
-  *
-  * @return The current integrated angle for the IMU Y axis in degrees.
-  *
-  * This function returns the most recent integrated angle for the Y axis in degrees.
-  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
- **/
-double ADIS16470_IMU::GetAngleY() const {
+double ADIS16470_IMU::GetGyroInstantX() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_integ_gyro_y;
+  return m_gyro_x;
 }
 
-/**
-  * @brief Returns the current integrated angle for the IMU Z axis.
-  *
-  * @return The current integrated angle for the IMU Z axis in degrees.
-  *
-  * This function returns the most recent integrated angle for the Z axis in degrees.
-  * The angle has been scaled and adjusted to account for the IMU decimation setting. 
- **/
-double ADIS16470_IMU::GetAngleZ() const {
+double ADIS16470_IMU::GetGyroInstantY() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_integ_gyro_z;
+  return m_gyro_y;
 }
 
-//TODO: Implement a selectable, instant delta angle return function.
-double ADIS16470_IMU::GetRate() const {
-  return 0;
+double ADIS16470_IMU::GetGyroInstantZ() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_gyro_z;
+}
+
+double ADIS16470_IMU::GetAccelInstantX() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_accel_x;
+}
+
+double ADIS16470_IMU::GetAccelInstantY() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_accel_y;
+}
+
+double ADIS16470_IMU::GetAccelInstantZ() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_accel_z;
+}
+
+double ADIS16470_IMU::GetXCompAngle() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_compAngleX;
+}
+
+double ADIS16470_IMU::GetYCompAngle() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_compAngleY;
+}
+
+double ADIS16470_IMU::GetXFilteredAngle() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_accelAngleX;
+}
+
+double ADIS16470_IMU::GetYFilteredAngle() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_accelAngleY;
 }
 
 /**
@@ -433,12 +568,8 @@ double ADIS16470_IMU::GetRate() const {
  **/
 void ADIS16470_IMU::InitSendable(SendableBuilder& builder) {
   builder.SetSmartDashboardType("ADIS16470 IMU");
-  auto gyroX = builder.GetEntry("GyroX").GetHandle();
-  auto gyroY = builder.GetEntry("GyroY").GetHandle();
-  auto gyroZ = builder.GetEntry("GyroZ").GetHandle();
+  auto yaw_angle = builder.GetEntry("Yaw Angle").GetHandle();
   builder.SetUpdateTable([=]() {
-    nt::NetworkTableEntry(gyroX).SetDouble(GetAngleX());
-    nt::NetworkTableEntry(gyroY).SetDouble(GetAngleY());
-    nt::NetworkTableEntry(gyroZ).SetDouble(GetAngleZ());
+    nt::NetworkTableEntry(yaw_angle).SetDouble(GetAngle());
   });
 }
