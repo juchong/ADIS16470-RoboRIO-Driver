@@ -287,14 +287,29 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     setName("ADIS16470", 0);
   }
 
+  /**
+   * 
+   * @param buf
+   * @return
+   */
   private static int toUShort(ByteBuffer buf) {
     return (buf.getShort(0)) & 0xFFFF;
   }
 
+  /**
+   * 
+   * @param buf
+   * @return
+   */
   private static int toUShort(byte[] buf) {
     return (((buf[0] & 0xFF) << 8) + ((buf[1] & 0xFF) << 0));
   }  
 
+  /**
+   * 
+   * @param data
+   * @return
+   */
   private static int toUShort(int... data) {
 	  byte[] buf = new byte[data.length];
 	  for(int i = 0; i < data.length; ++i) {
@@ -303,24 +318,49 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
 	  return toUShort(buf);
   }
 
+  /**
+   * 
+   * @param sint
+   * @return
+   */
   private static long toULong(int sint) {
     return sint & 0x00000000FFFFFFFFL;
   }
 
+  /**
+   * 
+   * @param buf
+   * @return
+   */
   private static int toShort(int... buf) {
     return (short)(((buf[0] & 0xFF) << 8) + ((buf[1] & 0xFF) << 0));
   }
 
+  /**
+   * 
+   * @param buf
+   * @return
+   */
   private static int toShort(ByteBuffer buf) {
 	  return toShort(buf.get(0), buf.get(1));
   }
 
+  /**
+   * 
+   * @param buf
+   * @return
+   */
   private static int toShort(byte[] buf) {
     return buf[0] << 8 | buf[1];
   }
 
-  private static long toInt(int... buf) {
-    return ((buf[0] & 0xFFFFFFFF) << 24 | (buf[1] & 0xFFFFFFFF) << 16 | (buf[2] & 0xFFFFFFFF) << 8 | buf[3]);
+  /**
+   * 
+   * @param buf
+   * @return
+   */
+  private static int toInt(int... buf) {
+    return (int)((buf[0] & 0xFF) << 24 | (buf[1] & 0xFF) << 16 | (buf[2] & 0xFF) << 8 | (buf[3] & 0xFF));
   }
 
   /**
@@ -429,7 +469,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     m_spi.configureAutoStall(5, 1000, 1);
 
     // Kick off auto SPI (Note: Device configration impossible after auto SPI is activated)
-    m_spi.startAutoTrigger(m_auto_interrupt, true, false);
+    m_spi.startAutoTrigger(m_auto_interrupt, false, true);
 
     // Check to see if the acquire thread is running. If not, kick one off.
     if(!m_acquire_task.isAlive()) {
@@ -623,8 +663,14 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
           m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
 
           /*
+          System.out.println(((toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]))*delta_angle_sf) / ((10000.0 / (buffer[i] - previous_timestamp)) / 100.0));
           // DEBUG: Plot Sub-Array Data in Terminal
-          System.out.println(toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]) + "," + (buffer[3] + "," + buffer[4] + "," + buffer[5] + "," + buffer[6]));
+          for (int j = 0; j < data_to_read; j++) {
+            System.out.print(buffer[j]);
+            System.out.print(" ,");
+          }
+          System.out.println(" ");
+          //System.out.println(((toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]))*delta_angle_sf) / ((10000.0 / (buffer[i] - previous_timestamp)) / 100.0) + "," + buffer[3] + "," + buffer[4] + "," + buffer[5] + "," + buffer[6]
           /*toShort(buffer[7], buffer[8]) + "," + 
           toShort(buffer[9], buffer[10]) + "," + 
           toShort(buffer[11], buffer[12]) + "," +
