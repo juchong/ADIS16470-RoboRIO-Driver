@@ -7,9 +7,11 @@
 
 package com.analog.adis16470.frc;
 
+import java.lang.reflect.Array;
 //import java.lang.FdLibm.Pow;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -189,8 +191,11 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   private double m_accelAngleY = 0.0;
 
   // State variables
-  private AtomicBoolean m_freed = new AtomicBoolean(false);
+  private volatile boolean m_thread_active = false;
   private int m_calibration_time = 0;
+  private volatile boolean m_first_run = true;
+  private volatile boolean m_thread_idle = false;
+  private boolean m_auto_configured = false;
 
   // Resources
   private SPI m_spi;
@@ -199,6 +204,8 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   private DigitalOutput m_reset_out;
   private DigitalInput m_reset_in;
   private DigitalOutput m_status_led;
+  private Thread m_acquire_task;
+  
 
   // Previous timestamp
   long previous_timestamp = 0;
@@ -216,8 +223,6 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     }
   }
 
-  private Thread m_acquire_task;
-
   public ADIS16470_IMU() {
     this(IMUAxis.kZ, SPI.Port.kOnboardCS0, ADIS16470CalibrationTime._4s);
   }
@@ -230,6 +235,8 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     m_yaw_axis = yaw_axis;
     m_calibration_time = cal_time.value;
     m_spi_port = port;
+
+    m_acquire_task = new Thread(new AcquireTask(this));
 
     // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
     // Relies on the RIO hardware by default configuring an output as low
@@ -312,8 +319,8 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     return buf[0] << 8 | buf[1];
   }
 
-  private static int toInt(int... buf) {
-    return (buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3]);
+  private static long toInt(int... buf) {
+    return ((buf[0] & 0xFFFFFFFF) << 24 | (buf[1] & 0xFFFFFFFF) << 16 | (buf[2] & 0xFFFFFFFF) << 8 | buf[3]);
   }
 
   /**
@@ -322,40 +329,66 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
    * @return
    */
   private boolean switchToStandardSPI() {
-    if (!m_freed.get()) {
-      m_freed.set(true);
-      try {
-        if (m_acquire_task != null) {
-          m_acquire_task.join();
+    // Check to see whether the acquire thread is active. If so, wait for it to stop producing data.
+    if (m_thread_active) {
+      m_thread_active = false;
+      while (!m_thread_idle) {
+        try{Thread.sleep(10);}catch(InterruptedException e){}
+        System.out.println("Paused thread sccessfully.");
+      }
+      // Maybe we're in auto SPI mode? If so, kill auto SPI, and then SPI.
+      if (m_spi != null && m_auto_configured) {
+        m_spi.stopAuto();
+        // We need to get rid of all the garbage left in the auto SPI buffer after stopping it.
+        // Sometimes data magically reappears, so we have to check the buffer size a couple of times
+        //  to be sure we got it all. Yuck.
+        int[] trashBuffer = new int[200];
+        try{Thread.sleep(100);}catch(InterruptedException e){}
+        int data_count = m_spi.readAutoReceivedData(trashBuffer, 0, 0);
+        while (data_count > 0) {
+          data_count = m_spi.readAutoReceivedData(trashBuffer, 0, 0);
+          m_spi.readAutoReceivedData(trashBuffer, data_count, 0);
         }
-      } catch (InterruptedException e) {
-      }
-      if (m_spi != null) {
-        m_spi.close();
-        m_spi = null;
-      }
-      if (m_auto_interrupt != null) {
-        m_auto_interrupt.close();
-        m_auto_interrupt = null;
+        System.out.println("Paused auto SPI successfully.");
       }
     }
+    // There isn't a SPI port active. Let's try to set one up
+    if (m_spi == null) {
+      System.out.println("Setting up a new SPI port.");
+      m_spi = new SPI(m_spi_port);
+      m_spi.setClockRate(2000000);
+      m_spi.setMSBFirst();
+      m_spi.setSampleDataOnTrailingEdge();
+      m_spi.setClockActiveLow();
+      m_spi.setChipSelectActiveLow();
+      readRegister(PROD_ID); // dummy read
 
-    m_spi = new SPI(m_spi_port);
-    m_spi.setClockRate(2000000);
-    m_spi.setMSBFirst();
-    m_spi.setSampleDataOnTrailingEdge();
-    m_spi.setClockActiveLow();
-    m_spi.setChipSelectActiveLow();
-
-    readRegister(PROD_ID); // dummy read
-
-    // Validate the product ID
-    if (readRegister(PROD_ID) != 16982) {
-      DriverStation.reportError("could not find ADIS16470", false);
-      close();
-      return false;
+      // Validate the product ID
+      if (readRegister(PROD_ID) != 16982) {
+        DriverStation.reportError("Could not find ADIS16470", false);
+        if (m_spi != null) {
+          m_auto_configured = false;
+          m_spi.close();
+        }
+        return false;
+      }
+      return true;
     }
-    return true;
+    else {
+      // Maybe the SPI port is active, but not in auto SPI mode? Try to read the product ID.
+      readRegister(PROD_ID); // dummy read
+      if (readRegister(PROD_ID) != 16982) {
+        DriverStation.reportError("Could not find an ADIS16470", false);
+        if (m_spi != null) {
+          m_auto_configured = false;
+          m_spi.close();
+        }
+        return false;
+      }
+      else {
+        return true;
+      }
+    }
   }
 
   /**
@@ -363,16 +396,24 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
    * @return
    */
   boolean switchToAutoSPI() {
+    // No SPI port has been set up. Go set one up first.
     if (m_spi == null) {
-      if (!switchToAutoSPI()) {
+      if (!switchToStandardSPI()) {
+        DriverStation.reportError("Failed to start/restart auto SPI", false);
         return false;
       }
     }
-    // Configure interrupt on SPI CS1
-    m_auto_interrupt = new DigitalInput(26);
-
-    // Configure DMA SPI packet
-    m_spi.initAuto(8200);
+    // Only set up the interrupt if needed.
+    if (m_auto_interrupt == null) {
+      // Configure interrupt on SPI CS1
+      m_auto_interrupt = new DigitalInput(26);
+    }
+    // The auto SPI controller gets angry if you try to set up two instances on one bus.
+    if (!m_auto_configured) {
+      m_spi.initAuto(8200);
+      m_auto_configured = true;
+    }
+    // Do we need to change auto SPI settings?
     switch (m_yaw_axis) {
     case kX:
       m_spi.setAutoTransmitData(m_autospi_x_packet, 2);
@@ -387,17 +428,26 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     // Configure auto stall time  
     m_spi.configureAutoStall(5, 1000, 1);
 
-    // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
+    // Kick off auto SPI (Note: Device configration impossible after auto SPI is activated)
     m_spi.startAutoTrigger(m_auto_interrupt, true, false);
 
-    if(m_freed.get()) {
-      m_freed.set(false);
-      m_acquire_task = new Thread(new AcquireTask(this));
-      m_acquire_task.setDaemon(true);
+    // Check to see if the acquire thread is running. If not, kick one off.
+    if(!m_acquire_task.isAlive()) {
+      m_first_run = true;
+      m_thread_active = true;
       m_acquire_task.start();
     }
-
-    reset();
+    // The thread was running, re-init run variables and start it up again.
+    else {
+      m_first_run = true;
+      m_thread_active = true;
+      System.out.println("Processing thread activated!");
+    }
+    // Looks like the thread didn't start for some reason. Abort.
+    if(!m_acquire_task.isAlive()) {
+      DriverStation.reportError("Failed to start/restart the acquire() thread.", false);
+      return false;
+    }
     return true;
   }
 
@@ -406,17 +456,18 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
    * @param new_cal_time
    * @return
    */
-  public int configCalTime(ADIS16470CalibrationTime new_cal_time) {
-    if(m_calibration_time == new_cal_time.value) {
-      return 1;
-    }
+  public boolean configCalTime(ADIS16470CalibrationTime new_cal_time) {
     if(!switchToStandardSPI()) {
-      return 2;
+      DriverStation.reportError("Failed to configure/reconfigure standard SPI.", false);
+      return false;
     }
     m_calibration_time = new_cal_time.value;
     writeRegister(NULL_CNFG, (m_calibration_time | 0x700));
-    switchToAutoSPI();
-    return 0;
+    if(!switchToAutoSPI()) {
+      DriverStation.reportError("Failed to configure/reconfigure auto SPI.", false);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -425,10 +476,12 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   @Override
   public void calibrate() {
     if(!switchToStandardSPI()) {
-      return;
+      DriverStation.reportError("Failed to configure/reconfigure standard SPI.", false);
     }
     writeRegister(GLOB_CMD, 0x0001);
-    switchToAutoSPI();
+    if(!switchToAutoSPI()) {
+      DriverStation.reportError("Failed to configure/reconfigure auto SPI.", false);
+    };
   }
 
   /**
@@ -441,10 +494,13 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
       return 1;
     }
     if(!switchToStandardSPI()) {
+      DriverStation.reportError("Failed to configure/reconfigure standard SPI.", false);
       return 2;
     }
     m_yaw_axis = yaw_axis;
-    switchToAutoSPI();
+    if (!switchToAutoSPI()) {
+      DriverStation.reportError("Failed to configure/reconfigure auto SPI.", false);
+    }
     return 0;
   }
 
@@ -496,126 +552,173 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
    */
   @Override
   public void close() {
-    m_freed.set(true);
-    try {
-      if (m_acquire_task != null) {
-        m_acquire_task.join();
+    if (m_thread_active) {
+      m_thread_active = false;
+      try {
+        if (m_acquire_task != null) {
+          m_acquire_task.join();
+          m_acquire_task = null;
+        }
+      } catch (InterruptedException e) {
       }
-    } catch (final InterruptedException e) {
-    }
-    if (m_auto_interrupt != null) {
-      m_auto_interrupt.close();
-      m_auto_interrupt = null;
-    }
-    if (m_spi != null) {
-      m_spi.close();
-      m_spi = null;
+      if (m_spi != null) {
+        m_spi.close();
+        if (m_auto_interrupt != null) {
+          m_auto_interrupt.close();
+          m_auto_interrupt = null;
+        }
+        m_spi = null;
+      }
     }
   }
 
+  /**
+   * 
+   */
   private void acquire() {
     // Set data packet length
     final int dataset_len = 19; // 18 data points + timestamp
 
     // Set up buffers and variables
     int[] buffer = new int[4000];
-    int data_count, data_remainder, data_to_read = 0;
+    int data_count = 0;
+    int data_remainder = 0;
+    int data_to_read = 0;
     double previous_timestamp = 0.0;
-    double delta_angle, gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z;
-    double gyro_x_si, gyro_y_si, gyro_z_si, accel_x_si, accel_y_si, accel_z_si;
+    double delta_angle = 0.0;
+    double gyro_x = 0.0;
+    double gyro_y = 0.0;
+    double gyro_z = 0.0;
+    double accel_x = 0.0;
+    double accel_y = 0.0;
+    double accel_z = 0.0;
+    double gyro_x_si = 0.0;
+    double gyro_y_si = 0.0;
+    double gyro_z_si = 0.0;
+    double accel_x_si = 0.0;
+    double accel_y_si = 0.0;
+    double accel_z_si = 0.0;
     double compAngleX = 0.0;
     double compAngleY = 0.0;
     double accelAngleX = 0.0;
     double accelAngleY = 0.0;
-    boolean first_run = true;
 
-    while (!m_freed.get()) {
+    while (true) {
 
       // Sleep loop for 10ms
       try{Thread.sleep(10);}catch(InterruptedException e){}
 
-      data_count = m_spi.readAutoReceivedData(buffer, 0, 0); // Read number of bytes currently stored in the buffer
-      data_remainder = data_count % dataset_len; // Check if frame is incomplete. Add 1 because of timestamp
-      data_to_read = data_count - data_remainder; // Remove incomplete data from read count
-      m_spi.readAutoReceivedData(buffer, data_to_read, 0); // Read data from DMA buffer (only complete sets)
-      
-      // Could be multiple data sets in the buffer. Handle each one.
-      for (int i = 0; i < data_to_read; i += dataset_len) { 
-        // Timestamp is at buffer[i]
-        m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
+      if (m_thread_active) {
 
-        /*
-        // DEBUG: Plot Sub-Array Data in Terminal
-        System.out.println(toInt(buffer[3], buffer[4], buffer[5], buffer[6]) + "," +
-        toShort(buffer[7], buffer[8]) + "," + 
-        toShort(buffer[9], buffer[10]) + "," + 
-        toShort(buffer[11], buffer[12]) + "," +
-        toShort(buffer[13], buffer[14]) + "," + 
-        toShort(buffer[15], buffer[16]) + ","
-        + toShort(buffer[17], buffer[18]));
-        */
+        m_thread_idle = false;
 
-        // Scale sensor data
-        delta_angle = (toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]) * delta_angle_sf) / (500.0 / (buffer[i] - previous_timestamp));
-        gyro_x = (toShort(buffer[i + 7], buffer[i + 8]) / 10.0);
-        gyro_y = (toShort(buffer[i + 9], buffer[i + 10]) / 10.0);
-        gyro_z = (toShort(buffer[i + 11], buffer[i + 12]) / 10.0);
-        accel_x = (toShort(buffer[i + 13], buffer[i + 14]) / 800.0);
-        accel_y = (toShort(buffer[i + 15], buffer[i + 16]) / 800.0);
-        accel_z = (toShort(buffer[i + 17], buffer[i + 18]) / 800.0);
+        data_count = m_spi.readAutoReceivedData(buffer, 0, 0); // Read number of bytes currently stored in the buffer
+        data_remainder = data_count % dataset_len; // Check if frame is incomplete. Add 1 because of timestamp
+        data_to_read = data_count - data_remainder; // Remove incomplete data from read count
+        m_spi.readAutoReceivedData(buffer, data_to_read, 0); // Read data from DMA buffer (only complete sets)
+        
+        // Could be multiple data sets in the buffer. Handle each one.
+        for (int i = 0; i < data_to_read; i += dataset_len) { 
+          // Timestamp is at buffer[i]
+          m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
 
-        // Convert scaled sensor data to SI units (for tilt calculations)
-        // TODO: Should the unit outputs be selectable?
-        gyro_x_si = gyro_x * deg_to_rad;
-        gyro_y_si = gyro_y * deg_to_rad;
-        gyro_z_si = gyro_z * deg_to_rad;
-        accel_x_si = accel_x * grav;
-        accel_y_si = accel_y * grav;
-        accel_z_si = accel_z * grav;
+          /*
+          // DEBUG: Plot Sub-Array Data in Terminal
+          System.out.println(toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]) + "," + (buffer[3] + "," + buffer[4] + "," + buffer[5] + "," + buffer[6]));
+          /*toShort(buffer[7], buffer[8]) + "," + 
+          toShort(buffer[9], buffer[10]) + "," + 
+          toShort(buffer[11], buffer[12]) + "," +
+          toShort(buffer[13], buffer[14]) + "," + 
+          toShort(buffer[15], buffer[16]) + ","
+          + toShort(buffer[17], buffer[18]));
+          */
 
-        // Store timestamp for next iteration
-        previous_timestamp = buffer[i];
+          // Scale sensor data
+          delta_angle = (toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]) * delta_angle_sf) / (500.0 / (buffer[i] - previous_timestamp));
+          gyro_x = (toShort(buffer[i + 7], buffer[i + 8]) / 10.0);
+          gyro_y = (toShort(buffer[i + 9], buffer[i + 10]) / 10.0);
+          gyro_z = (toShort(buffer[i + 11], buffer[i + 12]) / 10.0);
+          accel_x = (toShort(buffer[i + 13], buffer[i + 14]) / 800.0);
+          accel_y = (toShort(buffer[i + 15], buffer[i + 16]) / 800.0);
+          accel_z = (toShort(buffer[i + 17], buffer[i + 18]) / 800.0);
 
-        m_alpha = m_tau / (m_tau + m_dt);
+          // Convert scaled sensor data to SI units (for tilt calculations)
+          // TODO: Should the unit outputs be selectable?
+          gyro_x_si = gyro_x * deg_to_rad;
+          gyro_y_si = gyro_y * deg_to_rad;
+          gyro_z_si = gyro_z * deg_to_rad;
+          accel_x_si = accel_x * grav;
+          accel_y_si = accel_y * grav;
+          accel_z_si = accel_z * grav;
 
-        if (first_run) {
-          // Set up inclinometer calculations for first run
-          accelAngleX = Math.atan2(accel_x_si, Math.sqrt((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
-          accelAngleY = Math.atan2(accel_y_si, Math.sqrt((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
-          compAngleX = accelAngleX;
-          compAngleY = accelAngleY;
-        }
-        else {
-          // Run inclinometer calculations
-          accelAngleX = Math.atan2(accel_x_si, Math.sqrt((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
-          accelAngleY = Math.atan2(accel_y_si, Math.sqrt((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
-          accelAngleX = formatAccelRange(accelAngleX, accel_z_si);
-          accelAngleY = formatAccelRange(accelAngleY, accel_z_si);
-          compAngleX = compFilterProcess(compAngleX, accelAngleX, -gyro_y_si);
-          compAngleY = compFilterProcess(compAngleY, accelAngleY, gyro_x_si);
-        }
+          // Store timestamp for next iteration
+          previous_timestamp = buffer[i];
 
-        synchronized (this) {
-          // Push data to global variables
-          if(first_run) {
-            // Don't accumulate first run. previous_timestamp will be "very" old and the integration will end up way off
-            m_integ_angle = 0.0;
+          m_alpha = m_tau / (m_tau + m_dt);
+
+          if (m_first_run) {
+            // Set up inclinometer calculations for first run
+            accelAngleX = Math.atan2(accel_x_si, Math.sqrt((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
+            accelAngleY = Math.atan2(accel_y_si, Math.sqrt((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
+            compAngleX = accelAngleX;
+            compAngleY = accelAngleY;
           }
           else {
-            m_integ_angle += delta_angle;
+            // Run inclinometer calculations
+            accelAngleX = Math.atan2(accel_x_si, Math.sqrt((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
+            accelAngleY = Math.atan2(accel_y_si, Math.sqrt((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
+            accelAngleX = formatAccelRange(accelAngleX, accel_z_si);
+            accelAngleY = formatAccelRange(accelAngleY, accel_z_si);
+            compAngleX = compFilterProcess(compAngleX, accelAngleX, -gyro_y_si);
+            compAngleY = compFilterProcess(compAngleY, accelAngleY, gyro_x_si);
           }
-          m_gyro_x = gyro_x;
-          m_gyro_y = gyro_y;
-          m_gyro_z = gyro_z;
-          m_accel_x = accel_x;
-          m_accel_y = accel_y;
-          m_accel_z = accel_z;
-          m_compAngleX = compAngleX * rad_to_deg;
-          m_compAngleY = compAngleY * rad_to_deg;
-          m_accelAngleX = accelAngleX * rad_to_deg;
-          m_accelAngleY = accelAngleY * rad_to_deg;
+
+          synchronized (this) {
+            // Push data to global variables
+            if(m_first_run) {
+              // Don't accumulate first run. previous_timestamp will be "very" old and the integration will end up way off
+              m_integ_angle = 0.0;
+            }
+            else {
+              m_integ_angle += delta_angle;
+            }
+            m_gyro_x = gyro_x;
+            m_gyro_y = gyro_y;
+            m_gyro_z = gyro_z;
+            m_accel_x = accel_x;
+            m_accel_y = accel_y;
+            m_accel_z = accel_z;
+            m_compAngleX = compAngleX * rad_to_deg;
+            m_compAngleY = compAngleY * rad_to_deg;
+            m_accelAngleX = accelAngleX * rad_to_deg;
+            m_accelAngleY = accelAngleY * rad_to_deg;
+          }
+          m_first_run = false;
         }
-        first_run = false;
+      }
+      else {
+        m_thread_idle = true;
+        data_count = 0;
+        data_remainder = 0;
+        data_to_read = 0;
+        previous_timestamp = 0.0;
+        delta_angle = 0.0;
+        gyro_x = 0.0;
+        gyro_y = 0.0;
+        gyro_z = 0.0;
+        accel_x = 0.0;
+        accel_y = 0.0;
+        accel_z = 0.0;
+        gyro_x_si = 0.0;
+        gyro_y_si = 0.0;
+        gyro_z_si = 0.0;
+        accel_x_si = 0.0;
+        accel_y_si = 0.0;
+        accel_z_si = 0.0;
+        compAngleX = 0.0;
+        compAngleY = 0.0;
+        accelAngleX = 0.0;
+        accelAngleY = 0.0;
       }
     }
   }
