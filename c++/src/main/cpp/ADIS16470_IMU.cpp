@@ -63,7 +63,7 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
   Wait(0.01);  // Wait 10ms
   delete m_reset_out;
   /*DigitalInput *m_reset_in = */new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
-  Wait(0.5); // Wait 500ms for reset to complete
+  Wait(0.25); // Wait 250ms for reset to complete
 
   // Configure standard SPI
   if(!SwitchToStandardSPI()){
@@ -140,6 +140,7 @@ bool ADIS16470_IMU::SwitchToStandardSPI(){
   uint16_t prod_id = ReadRegister(PROD_ID);
   if (prod_id != 16982 && prod_id != 16470) {
     DriverStation::ReportError("Could not find ADIS16470!");
+    ~ADIS16470_IMU();
     return false;
   }
   return true;
@@ -330,10 +331,9 @@ ADIS16470_IMU::~ADIS16470_IMU() {
 void ADIS16470_IMU::Acquire() {
   // Set data packet length
   const int dataset_len = 19; // 18 data points + timestamp
-  const int num_buffers = 30;
 
   // This buffer can contain many datasets
-  uint32_t buffer[dataset_len * num_buffers];
+  uint32_t buffer[2000];
   int data_count, data_remainder, data_to_read = 0;
   uint32_t previous_timestamp = 0;
   double delta_angle, gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z;
@@ -376,7 +376,8 @@ void ADIS16470_IMU::Acquire() {
       accel_y = (BuffToShort(&buffer[i + 15]) / 800.0);
       accel_z = (BuffToShort(&buffer[i + 17]) / 800.0);
 
-      // Convert scaled sensor data to SI units
+      // Convert scaled sensor data to SI units (for tilt calculations)
+      // TODO: Should the unit outputs be selectable?
       gyro_x_si = gyro_x * deg_to_rad;
       gyro_y_si = gyro_y * deg_to_rad;
       gyro_z_si = gyro_z * deg_to_rad;
@@ -395,13 +396,14 @@ void ADIS16470_IMU::Acquire() {
       m_alpha = m_tau / (m_tau + m_dt);
 
       if (first_run) {
+        // Set up inclinometer calculations for first run
         accelAngleX = atan2f(accel_x_si, sqrtf((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
         accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
         compAngleX = accelAngleX;
         compAngleY = accelAngleY;
       }
       else {
-        // Process X angle
+        // Run inclinometer calculations
         accelAngleX = atan2f(accel_x_si, sqrtf((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
         accelAngleY = atan2f(accel_y_si, sqrtf((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
         accelAngleX = FormatAccelRange(accelAngleX, accel_z_si);

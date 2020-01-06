@@ -317,7 +317,7 @@ class ADIS16470_IMU : public GyroBase {
   double m_gyro_x, m_gyro_y, m_gyro_z, m_accel_x, m_accel_y, m_accel_z = 0.0;
 
   // Complementary filter variables
-  double m_tau = 1;
+  double m_tau = 1.0;
   double m_dt, m_alpha = 0.0;
   double m_compAngleX, m_compAngleY, m_accelAngleX, m_accelAngleY = 0.0;
 

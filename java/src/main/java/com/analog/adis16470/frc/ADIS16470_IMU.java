@@ -7,6 +7,7 @@
 
 package com.analog.adis16470.frc;
 
+//import java.lang.FdLibm.Pow;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,7 +21,6 @@ import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DigitalOutput;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GyroBase;
-import edu.wpi.first.wpilibj.PIDSource;
 import edu.wpi.first.wpilibj.SPI;
 import edu.wpi.first.wpilibj.Sendable;
 import edu.wpi.first.wpilibj.Timer;
@@ -34,132 +34,178 @@ import edu.wpi.first.networktables.NetworkTableInstance;
  * This class is for the ADIS16470 IMU that connects to the RoboRIO SPI port.
  */
 @SuppressWarnings("unused")
-public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable {
-	public static final double kCalibrationSampleTime = 5.0; // Calibration time in seconds (regardless of sps)
-  public static final double kDegreePerSecondPerLSB = 1.0/10.0;
-  public static final double kGPerLSB = 1.0/800.0;
-  public static final double kDegCPerLSB = 1.0/10.0;
-  public static final double kDegCOffset = 0.0;
+public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
+  
+  /* ADIS16470 Register Map Declaration */
+  private static final int FLASH_CNT      =   0x00;  //Flash memory write count
+  private static final int DIAG_STAT      =   0x02;  //Diagnostic and operational status
+  private static final int X_GYRO_LOW     =   0x04;  //X-axis gyroscope output, lower word
+  private static final int X_GYRO_OUT     =   0x06;  //X-axis gyroscope output, upper word
+  private static final int Y_GYRO_LOW     =   0x08;  //Y-axis gyroscope output, lower word
+  private static final int Y_GYRO_OUT     =   0x0A;  //Y-axis gyroscope output, upper word
+  private static final int Z_GYRO_LOW     = 	 0x0C;  //Z-axis gyroscope output, lower word
+  private static final int Z_GYRO_OUT     =   0x0E;  //Z-axis gyroscope output, upper word
+  private static final int X_ACCL_LOW     =   0x10;  //X-axis accelerometer output, lower word
+  private static final int X_ACCL_OUT     =   0x12;  //X-axis accelerometer output, upper word
+  private static final int Y_ACCL_LOW     =   0x14;  //Y-axis accelerometer output, lower word
+  private static final int Y_ACCL_OUT     =   0x16;  //Y-axis accelerometer output, upper word
+  private static final int Z_ACCL_LOW     =   0x18;  //Z-axis accelerometer output, lower word
+  private static final int Z_ACCL_OUT     =   0x1A;  //Z-axis accelerometer output, upper word
+  private static final int TEMP_OUT       =   0x1C;  //Temperature output (internal, not calibrated)
+  private static final int TIME_STAMP     =   0x1E;  //PPS mode time stamp
+  private static final int X_DELTANG_LOW  =   0x24;  //X-axis delta angle output, lower word
+  private static final int X_DELTANG_OUT  =   0x26;  //X-axis delta angle output, upper word
+  private static final int Y_DELTANG_LOW  =   0x28;  //Y-axis delta angle output, lower word
+  private static final int Y_DELTANG_OUT  =   0x2A;  //Y-axis delta angle output, upper word
+  private static final int Z_DELTANG_LOW  =   0x2C;  //Z-axis delta angle output, lower word
+  private static final int Z_DELTANG_OUT  =   0x2E;  //Z-axis delta angle output, upper word
+  private static final int X_DELTVEL_LOW  =   0x30;  //X-axis delta velocity output, lower word
+  private static final int X_DELTVEL_OUT  =   0x32;  //X-axis delta velocity output, upper word
+  private static final int Y_DELTVEL_LOW  =   0x34;  //Y-axis delta velocity output, lower word
+  private static final int Y_DELTVEL_OUT  =   0x36;  //Y-axis delta velocity output, upper word
+  private static final int Z_DELTVEL_LOW  =   0x38;  //Z-axis delta velocity output, lower word
+  private static final int Z_DELTVEL_OUT  =   0x3A;  //Z-axis delta velocity output, upper word
+  private static final int XG_BIAS_LOW    =   0x40;  //X-axis gyroscope bias offset correction, lower word
+  private static final int XG_BIAS_HIGH   =   0x42;  //X-axis gyroscope bias offset correction, upper word
+  private static final int YG_BIAS_LOW    =   0x44;  //Y-axis gyroscope bias offset correction, lower word
+  private static final int YG_BIAS_HIGH   =   0x46;  //Y-axis gyroscope bias offset correction, upper word
+  private static final int ZG_BIAS_LOW    =   0x48;  //Z-axis gyroscope bias offset correction, lower word
+  private static final int ZG_BIAS_HIGH   =   0x4A;  //Z-axis gyroscope bias offset correction, upper word
+  private static final int XA_BIAS_LOW    =   0x4C;  //X-axis accelerometer bias offset correction, lower word
+  private static final int XA_BIAS_HIGH   =   0x4E;  //X-axis accelerometer bias offset correction, upper word
+  private static final int YA_BIAS_LOW    =   0x50;  //Y-axis accelerometer bias offset correction, lower word
+  private static final int YA_BIAS_HIGH   =   0x52;  //Y-axis accelerometer bias offset correction, upper word
+  private static final int ZA_BIAS_LOW    =   0x54;  //Z-axis accelerometer bias offset correction, lower word
+  private static final int ZA_BIAS_HIGH   =   0x56;  //Z-axis accelerometer bias offset correction, upper word
+  private static final int FILT_CTRL      =   0x5C;  //Filter control
+  private static final int MSC_CTRL       =   0x60;  //Miscellaneous control
+  private static final int UP_SCALE       =   0x62;  //Clock scale factor, PPS mode
+  private static final int DEC_RATE       =   0x64;  //Decimation rate control (output data rate)
+  private static final int NULL_CNFG      =   0x66;  //Auto-null configuration control
+  private static final int GLOB_CMD       =   0x68;  //Global commands
+  private static final int FIRM_REV       =   0x6C;  //Firmware revision
+  private static final int FIRM_DM        =   0x6E;  //Firmware revision date, month and day
+  private static final int FIRM_Y         =   0x70;  //Firmware revision date, year
+  private static final int PROD_ID        =   0x72;  //Product identification 
+  private static final int SERIAL_NUM     =   0x74;  //Serial number (relative to assembly lot)
+  private static final int USER_SCR1      =   0x76;  //User scratch register 1 
+  private static final int USER_SCR2      =   0x78;  //User scratch register 2 
+  private static final int USER_SCR3      =   0x7A;  //User scratch register 3 
+  private static final int FLSHCNT_LOW    =   0x7C;  //Flash update count, lower word 
+  private static final int FLSHCNT_HIGH   =   0x7E;  //Flash update count, upper word 
 
-  public static final int kGLOB_CMD = 0x68;
-  public static final int kRegDEC_RATE = 0x64;
-  public static final int kRegFILT_CTRL = 0x5C;
-  public static final int kRegMSC_CTRL = 0x60;
-  public static final int kRegPROD_ID = 0x72;
+  private static final byte[] m_autospi_x_packet = {
+    X_DELTANG_OUT, 
+    FLASH_CNT, 
+    X_DELTANG_LOW, 
+    FLASH_CNT, 
+    X_GYRO_OUT,
+    FLASH_CNT, 
+    Y_GYRO_OUT, 
+    FLASH_CNT, 
+    Z_GYRO_OUT, 
+    FLASH_CNT, 
+    X_ACCL_OUT, 
+    FLASH_CNT, 
+    Y_ACCL_OUT, 
+    FLASH_CNT,
+    Z_ACCL_OUT,
+    FLASH_CNT
+  };
 
-  public enum Axis { kX, kY, kZ }
+  private static final byte[] m_autospi_y_packet = {
+    Y_DELTANG_OUT, 
+    FLASH_CNT, 
+    Y_DELTANG_LOW, 
+    FLASH_CNT, 
+    X_GYRO_OUT,
+    FLASH_CNT, 
+    Y_GYRO_OUT, 
+    FLASH_CNT, 
+    Z_GYRO_OUT, 
+    FLASH_CNT, 
+    X_ACCL_OUT, 
+    FLASH_CNT, 
+    Y_ACCL_OUT, 
+    FLASH_CNT,
+    Z_ACCL_OUT,
+    FLASH_CNT
+  };
+
+  private static final byte[] m_autospi_z_packet = {
+    Z_DELTANG_OUT, 
+    FLASH_CNT, 
+    Z_DELTANG_LOW, 
+    FLASH_CNT, 
+    X_GYRO_OUT,
+    FLASH_CNT, 
+    Y_GYRO_OUT, 
+    FLASH_CNT, 
+    Z_GYRO_OUT, 
+    FLASH_CNT, 
+    X_ACCL_OUT, 
+    FLASH_CNT, 
+    Y_ACCL_OUT, 
+    FLASH_CNT,
+    Z_ACCL_OUT,
+    FLASH_CNT
+  };
+
+  public enum IMUAxis { kX, kY, kZ }
+
+  public enum ADIS16470CalibrationTime { 
+    _32ms(0), _64ms(1), _128ms(2), _256ms(3),_512ms(4), _1s(5), _2s(6), _4s(7), _8s(8), _16s(9), _32s(10), _64s(11);
+    private int value;
+    private ADIS16470CalibrationTime(int value) {
+      this.value = value;
+    }
+  }
+
+  // Static Constants
+  private static final double delta_angle_sf = 2160.0 / 2147483648.0;
+  private static final double rad_to_deg = 57.2957795;
+  private static final double deg_to_rad = 0.0174532;
+  private static final double grav = 9.81;
 
   // AHRS yaw axis
-  private Axis m_yaw_axis;
+  private IMUAxis m_yaw_axis;
 
-  // gyro offset
-  private double m_gyro_offset_x = 0.0;
-  private double m_gyro_offset_y = 0.0;
-  private double m_gyro_offset_z = 0.0;
-
-  // last read values (post-scaling)
+  // Instant raw outputs
   private double m_gyro_x = 0.0;
   private double m_gyro_y = 0.0;
   private double m_gyro_z = 0.0;
   private double m_accel_x = 0.0;
   private double m_accel_y = 0.0;
   private double m_accel_z = 0.0;
-  private double m_temp = 0.0;
-  private double m_status = 0.0;
-  private double m_counter = 0.0;
-  private double dt = 0.0;
 
-  // accumulated gyro values (for offset calculation)
-  private int m_accum_count = 0;
-  private double m_accum_gyro_x = 0.0;
-  private double m_accum_gyro_y = 0.0;
-  private double m_accum_gyro_z = 0.0;
+  // Integrated gyro angle
+  private double m_integ_angle = 0.0;
 
-  // integrated gyro values
-  private double m_integ_gyro_x = 0.0;
-  private double m_integ_gyro_y = 0.0;
-  private double m_integ_gyro_z = 0.0;
+  // Complementary filter variables
+  private double m_dt = 0.0;
+  private double m_alpha = 0.0;
+  private double m_tau = 1.0;
+  private double m_compAngleX, m_compAngleY, m_accelAngleX;
+  private double m_accelAngleY = 0.0;
 
-  // last sample time
-  private double m_last_sample_time = 0.0;
-
+  // State variables
   private AtomicBoolean m_freed = new AtomicBoolean(false);
+  private int m_calibration_time = 0;
 
+  // Resources
   private SPI m_spi;
-  private DigitalInput m_interrupt;
+  private SPI.Port m_spi_port;
+  private DigitalInput m_auto_interrupt;
   private DigitalOutput m_reset_out;
   private DigitalInput m_reset_in;
   private DigitalOutput m_status_led;
 
-  // Sample from the IMU
-  private static class Sample {
-    public double gyro_x;
-    public double gyro_y;
-    public double gyro_z;
-    public double accel_x;
-    public double accel_y;
-    public double accel_z;
-    public double mag_x;
-    public double mag_y;
-    public double mag_z;
-    public double baro;
-    public double temp;
-    public double dt;
-
-    // Swap axis as appropriate for yaw axis selection
-    public void adjustYawAxis(Axis yaw_axis) {
-      switch (yaw_axis) {
-        case kX: {
-          // swap X and Z
-          double tmp;
-          tmp = accel_x;
-          accel_x = accel_z;
-          accel_z = tmp;
-          tmp = mag_x;
-          mag_x = mag_z;
-          mag_z = tmp;
-          tmp = gyro_x;
-          gyro_x = gyro_z;
-          gyro_z = tmp;
-          break;
-        }
-        case kY: {
-          // swap Y and Z
-          double tmp;
-          tmp = accel_y;
-          accel_y = accel_z;
-          accel_z = tmp;
-          tmp = mag_y;
-          mag_y = mag_z;
-          mag_z = tmp;
-          tmp = gyro_y;
-          gyro_y = gyro_z;
-          gyro_z = tmp;
-          break;
-        }
-        case kZ:
-        default:
-          // no swap required
-          break;
-      }
-    }
-  }
-
-  // Sample FIFO
-  private static final int kSamplesDepth = 10;
-  private final Sample[] m_samples;
-  private final Lock m_samples_mutex;
-  private final Condition m_samples_not_empty;
-  private int m_samples_count = 0;
-  private int m_samples_take_index = 0;
-  private int m_samples_put_index = 0;
-  private boolean m_calculate_started = false;
-
   // Previous timestamp
-  long timestamp_old = 0;
+  long previous_timestamp = 0;
 
   private static class AcquireTask implements Runnable {
     private ADIS16470_IMU imu;
+
     public AcquireTask(ADIS16470_IMU imu) {
       this.imu = imu;
     }
@@ -169,92 +215,60 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
       imu.acquire();
     }
   }
+
   private Thread m_acquire_task;
 
-  public ADIS16470_IMU(){
-    this(Axis.kZ, SPI.Port.kOnboardCS0);
+  public ADIS16470_IMU() {
+    this(IMUAxis.kZ, SPI.Port.kOnboardCS0, ADIS16470CalibrationTime._4s);
   }
 
   /**
    * @param yaw_axis Which axis is Yaw
-   * @param port SPI port to use
+   * @param port     SPI port to use
    */
-  public ADIS16470_IMU(Axis yaw_axis, SPI.Port port) {
+  public ADIS16470_IMU(IMUAxis yaw_axis, SPI.Port port, ADIS16470CalibrationTime cal_time) {
     m_yaw_axis = yaw_axis;
-    
+    m_calibration_time = cal_time.value;
+    m_spi_port = port;
+
     // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
     // Relies on the RIO hardware by default configuring an output as low
-    // and configuring an input as high Z. The 10k pull-up resistor internal to the 
-    // IMU then forces the reset line high for normal operation. 
-    m_reset_out = new DigitalOutput(27);  // Drive SPI CS2 (IMU RST) low
-    Timer.delay(0.01);  // Wait 10ms
+    // and configuring an input as high Z. The 10k pull-up resistor internal to the
+    // IMU then forces the reset line high for normal operation.
+    m_reset_out = new DigitalOutput(27); // Drive SPI CS2 (IMU RST) low
+    Timer.delay(0.01); // Wait 10ms
     m_reset_out.close();
-    m_reset_in = new DigitalInput(27);  // Set SPI CS2 (IMU RST) high
-    Timer.delay(0.5); // Wait 500ms for reset to complete
+    m_reset_in = new DigitalInput(27); // Set SPI CS2 (IMU RST) high
+    Timer.delay(0.25); // Wait 250ms for reset to complete
 
-    m_spi = new SPI(port);
-    m_spi.setClockRate(1000000);
-    m_spi.setMSBFirst();
-    m_spi.setSampleDataOnTrailingEdge();
-    m_spi.setClockActiveLow();
-    m_spi.setChipSelectActiveLow();
-    
-    readRegister(kRegPROD_ID); // dummy read
-    
-    // Validate the product ID
-    if (readRegister(kRegPROD_ID) != 16982) {
-      m_spi.close();
-      m_spi = null;
-      m_samples = null;
-      m_samples_mutex = null;
-      m_samples_not_empty = null;
-      DriverStation.reportError("could not find ADIS16470", false);
+    if(!switchToStandardSPI()) {
       return;
     }
 
-    // Set IMU internal decimation to 200 SPS
-    writeRegister(kRegDEC_RATE, 0x0009);
+    // Set IMU internal decimation to 2000 SPS
+    writeRegister(DEC_RATE, 0x0000);
 
     // Enable Data Ready (LOW = Good Data), gSense Compensation, PoP
-    writeRegister(kRegMSC_CTRL, 0x00C1);
+    writeRegister(MSC_CTRL, 0x0001);
 
     // Configure IMU internal Bartlett filter
-    writeRegister(kRegFILT_CTRL, 0x0000);
-
-    // Create data acq FIFO.  We make the FIFO 2 longer than it needs
-    // to be so the input and output never overlap (we hold a reference
-    // to the output while the lock is released).
-    m_samples_mutex = new ReentrantLock();
-    m_samples_not_empty = m_samples_mutex.newCondition();
+    writeRegister(FILT_CTRL, 0x0002);
     
-    m_samples = new Sample[kSamplesDepth + 2];
-    for (int i=0; i<kSamplesDepth + 2; i++) {
-      m_samples[i] = new Sample();
-    }
-    
-    // Configure interrupt on SPI CS1
-    m_interrupt = new DigitalInput(26);
+    // Configure continuous bias calibration time based on user setting
+    writeRegister(NULL_CNFG, (m_calibration_time | 0x0700));
 
-    // Configure DMA SPI
-    m_spi.initAuto(8200);
-    m_spi.setAutoTransmitData(new byte[]{kGLOB_CMD},21);
-
-    // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
-    m_spi.startAutoTrigger(m_interrupt,true,false);
+    // Notify DS that IMU calibration delay is active
+    DriverStation.reportWarning("ADIS16470 IMU Detected. Starting initial calibration delay.", false);
     
-    m_freed.set(false);
-    m_acquire_task = new Thread(new AcquireTask(this));
-    m_acquire_task.setDaemon(true);
-    m_acquire_task.start();
-    
-    // Execute offset calibration on start-up
-    calibrate();
+    // Wait for samples to accumulate internal to the IMU (110% of user-defined time)
+    try{Thread.sleep((long)(Math.pow(2.0, m_calibration_time) / 2000 * 64 * 1.1 * 1000));}catch(InterruptedException e){}
 
-    Timer.delay(0.500); 
+    // Write offset calibration command to IMU
+    writeRegister(GLOB_CMD, 0x0001);
 
-    // Re-initialize accumulations after calibration
-    reset();
-    
+    // Configure and enable auto SPI
+    switchToAutoSPI();
+
     // Let the user know the IMU was initiallized successfully
     DriverStation.reportWarning("ADIS16470 IMU Successfully Initialized!", false);
 
@@ -266,53 +280,179 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
     setName("ADIS16470", 0);
   }
 
+  private static int toUShort(ByteBuffer buf) {
+    return (buf.getShort(0)) & 0xFFFF;
+  }
+
+  private static int toUShort(byte[] buf) {
+    return (((buf[0] & 0xFF) << 8) + ((buf[1] & 0xFF) << 0));
+  }  
+
+  private static int toUShort(int... data) {
+	  byte[] buf = new byte[data.length];
+	  for(int i = 0; i < data.length; ++i) {
+		  buf[i] = (byte)data[i];
+	  }
+	  return toUShort(buf);
+  }
+
+  private static long toULong(int sint) {
+    return sint & 0x00000000FFFFFFFFL;
+  }
+
+  private static int toShort(int... buf) {
+    return (short)(((buf[0] & 0xFF) << 8) + ((buf[1] & 0xFF) << 0));
+  }
+
+  private static int toShort(ByteBuffer buf) {
+	  return toShort(buf.get(0), buf.get(1));
+  }
+
+  private static int toShort(byte[] buf) {
+    return buf[0] << 8 | buf[1];
+  }
+
+  private static int toInt(int... buf) {
+    return (buf[0] << 24 | buf[1] << 16 | buf[2] << 8 | buf[3]);
+  }
+
+  /**
+   * Switch to standard SPI mode.
+   * 
+   * @return
+   */
+  private boolean switchToStandardSPI() {
+    if (!m_freed.get()) {
+      m_freed.set(true);
+      try {
+        if (m_acquire_task != null) {
+          m_acquire_task.join();
+        }
+      } catch (InterruptedException e) {
+      }
+      if (m_spi != null) {
+        m_spi.close();
+        m_spi = null;
+      }
+      if (m_auto_interrupt != null) {
+        m_auto_interrupt.close();
+        m_auto_interrupt = null;
+      }
+    }
+
+    m_spi = new SPI(m_spi_port);
+    m_spi.setClockRate(2000000);
+    m_spi.setMSBFirst();
+    m_spi.setSampleDataOnTrailingEdge();
+    m_spi.setClockActiveLow();
+    m_spi.setChipSelectActiveLow();
+
+    readRegister(PROD_ID); // dummy read
+
+    // Validate the product ID
+    if (readRegister(PROD_ID) != 16982) {
+      DriverStation.reportError("could not find ADIS16470", false);
+      close();
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * 
+   * @return
+   */
+  boolean switchToAutoSPI() {
+    if (m_spi == null) {
+      if (!switchToAutoSPI()) {
+        return false;
+      }
+    }
+    // Configure interrupt on SPI CS1
+    m_auto_interrupt = new DigitalInput(26);
+
+    // Configure DMA SPI packet
+    m_spi.initAuto(8200);
+    switch (m_yaw_axis) {
+    case kX:
+      m_spi.setAutoTransmitData(m_autospi_x_packet, 2);
+      break;
+    case kY:
+      m_spi.setAutoTransmitData(m_autospi_y_packet, 2);
+      break;
+    default:
+      m_spi.setAutoTransmitData(m_autospi_z_packet, 2);
+      break;
+    }
+    // Configure auto stall time  
+    m_spi.configureAutoStall(5, 1000, 1);
+
+    // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
+    m_spi.startAutoTrigger(m_auto_interrupt, true, false);
+
+    if(m_freed.get()) {
+      m_freed.set(false);
+      m_acquire_task = new Thread(new AcquireTask(this));
+      m_acquire_task.setDaemon(true);
+      m_acquire_task.start();
+    }
+
+    reset();
+    return true;
+  }
+
+  /**
+   * 
+   * @param new_cal_time
+   * @return
+   */
+  public int configCalTime(ADIS16470CalibrationTime new_cal_time) {
+    if(m_calibration_time == new_cal_time.value) {
+      return 1;
+    }
+    if(!switchToStandardSPI()) {
+      return 2;
+    }
+    m_calibration_time = new_cal_time.value;
+    writeRegister(NULL_CNFG, (m_calibration_time | 0x700));
+    switchToAutoSPI();
+    return 0;
+  }
+
   /**
    * {@inheritDoc}
    */
   @Override
   public void calibrate() {
-    if (m_spi == null) return;
-
-    Timer.delay(0.1);
-
-    synchronized (this) {
-      m_accum_count = 0;
-      m_accum_gyro_x = 0.0;
-      m_accum_gyro_y = 0.0;
-      m_accum_gyro_z = 0.0;
+    if(!switchToStandardSPI()) {
+      return;
     }
+    writeRegister(GLOB_CMD, 0x0001);
+    switchToAutoSPI();
+  }
 
-    Timer.delay(kCalibrationSampleTime);
-
-    synchronized (this) {
-      m_gyro_offset_x = m_accum_gyro_x / m_accum_count;
-      m_gyro_offset_y = m_accum_gyro_y / m_accum_count;
-      m_gyro_offset_z = m_accum_gyro_z / m_accum_count;
+  /**
+   * 
+   * @param yaw_axis
+   * @return
+   */
+  public int setYawAxis(IMUAxis yaw_axis) {
+    if(m_yaw_axis == yaw_axis) {
+      return 1;
     }
+    if(!switchToStandardSPI()) {
+      return 2;
+    }
+    m_yaw_axis = yaw_axis;
+    switchToAutoSPI();
+    return 0;
   }
 
-  static int ToUShort(ByteBuffer buf) {
-	  return (buf.getShort(0)) & 0xFFFF;
-  }
-  static int ToUShort(int... data) {
-	  ByteBuffer buf = ByteBuffer.allocateDirect(data.length);
-	  for(int d : data) {
-		  buf.put((byte)d);
-	  }
-	  return ToUShort(buf);
-  }
-  
-  public static long ToULong(int sint) {
-		return sint & 0x00000000FFFFFFFFL;
-	}
-
-  private static int ToShort(int... buf) {
-      return (short)(((short)buf[0]) << 8 | buf[1]);
-  }
-  static int ToShort(ByteBuffer buf) {
-	  return ToShort(buf.get(0), buf.get(1));
-  }
-  
+  /**
+   * 
+   * @param reg
+   * @return
+   */
   private int readRegister(int reg) {
     ByteBuffer buf = ByteBuffer.allocateDirect(2);
     buf.order(ByteOrder.BIG_ENDIAN);
@@ -322,13 +462,18 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
     m_spi.write(buf, 2);
     m_spi.read(false, buf, 2);
 
-    return ToUShort(buf);
+    return toUShort(buf);
   }
 
+  /**
+   * 
+   * @param reg
+   * @param val
+   */
   private void writeRegister(int reg, int val) {
     ByteBuffer buf = ByteBuffer.allocateDirect(2);
     // low byte
-    buf.put(0, (byte)((0x80 | reg) | 0x10));
+    buf.put(0, (byte) ((0x80 | reg) | 0x10));
     buf.put(1, (byte) (val & 0xff));
     m_spi.write(buf, 2);
     // high byte
@@ -342,9 +487,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
    */
   public void reset() {
     synchronized (this) {
-      m_integ_gyro_x = 0.0;
-      m_integ_gyro_y = 0.0;
-      m_integ_gyro_z = 0.0;
+      m_integ_angle = 0.0;
     }
   }
 
@@ -354,23 +497,15 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
   @Override
   public void close() {
     m_freed.set(true);
-    if (m_samples_mutex != null) {
-      m_samples_mutex.lock();
-      try {
-        m_samples_not_empty.signal();
-      } finally {
-        m_samples_mutex.unlock();
-      }
-    }
     try {
       if (m_acquire_task != null) {
         m_acquire_task.join();
       }
-    } catch (InterruptedException e) {
+    } catch (final InterruptedException e) {
     }
-    if (m_interrupt != null) {
-      m_interrupt.close();
-      m_interrupt = null;
+    if (m_auto_interrupt != null) {
+      m_auto_interrupt.close();
+      m_auto_interrupt = null;
     }
     if (m_spi != null) {
       m_spi.close();
@@ -379,211 +514,298 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, PIDSource, Sendable
   }
 
   private void acquire() {
-    ByteBuffer readBuf = ByteBuffer.allocateDirect(64000);
-    readBuf.order(ByteOrder.LITTLE_ENDIAN);
-    double gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z, temp, status, counter;
-    int data_count = 0;
-    int array_offset = 0;
-    int imu_checksum = 0;
-    double dt = 0; // This number must be adjusted if decimation setting is changed. Default is 1/102.4 SPS
-    int data_subset[] = new int[23];
-    long timestamp_new = 0;
-    int data_to_read = 0;
-    
+    // Set data packet length
+    final int dataset_len = 19; // 18 data points + timestamp
+
+    // Set up buffers and variables
+    int[] buffer = new int[4000];
+    int data_count, data_remainder, data_to_read = 0;
+    double previous_timestamp = 0.0;
+    double delta_angle, gyro_x, gyro_y, gyro_z, accel_x, accel_y, accel_z;
+    double gyro_x_si, gyro_y_si, gyro_z_si, accel_x_si, accel_y_si, accel_z_si;
+    double compAngleX = 0.0;
+    double compAngleY = 0.0;
+    double accelAngleX = 0.0;
+    double accelAngleY = 0.0;
+    boolean first_run = true;
+
     while (!m_freed.get()) {
-      // Waiting for the buffer to fill...
-  	  Timer.delay(.020); // A delay less than 10ms could potentially overflow the local buffer
 
-  	  data_count = m_spi.readAutoReceivedData(readBuf,0,0); // Read number of bytes currently stored in the buffer
-  	  array_offset = data_count % 92; // Look for "extra" data This is 92 not 23 like in C++ b/c everything is 32-bits and takes up 4 bytes in the buffer
-  	  data_to_read = data_count - array_offset; // Discard "extra" data
-      m_spi.readAutoReceivedData(readBuf,data_to_read,0); // Read data from DMA buffer
-  	  for(int i = 0; i < data_to_read; i += 92) { // Process each set of 23 bytes (timestamp + 23 data) * 4 (32-bit ints)
-		    for(int j = 1; j < 24; j++) { // Split each set of 23 bytes into a sub-array for processing
-          int at = (i + 4 * (j));
-          data_subset[j - 1] = readBuf.getInt(at);
+      // Sleep loop for 10ms
+      try{Thread.sleep(10);}catch(InterruptedException e){}
+
+      data_count = m_spi.readAutoReceivedData(buffer, 0, 0); // Read number of bytes currently stored in the buffer
+      data_remainder = data_count % dataset_len; // Check if frame is incomplete. Add 1 because of timestamp
+      data_to_read = data_count - data_remainder; // Remove incomplete data from read count
+      m_spi.readAutoReceivedData(buffer, data_to_read, 0); // Read data from DMA buffer (only complete sets)
+      
+      // Could be multiple data sets in the buffer. Handle each one.
+      for (int i = 0; i < data_to_read; i += dataset_len) { 
+        // Timestamp is at buffer[i]
+        m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
+
+        /*
+        // DEBUG: Plot Sub-Array Data in Terminal
+        System.out.println(toInt(buffer[3], buffer[4], buffer[5], buffer[6]) + "," +
+        toShort(buffer[7], buffer[8]) + "," + 
+        toShort(buffer[9], buffer[10]) + "," + 
+        toShort(buffer[11], buffer[12]) + "," +
+        toShort(buffer[13], buffer[14]) + "," + 
+        toShort(buffer[15], buffer[16]) + ","
+        + toShort(buffer[17], buffer[18]));
+        */
+
+        // Scale sensor data
+        delta_angle = (toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]) * delta_angle_sf) / (500.0 / (buffer[i] - previous_timestamp));
+        gyro_x = (toShort(buffer[i + 7], buffer[i + 8]) / 10.0);
+        gyro_y = (toShort(buffer[i + 9], buffer[i + 10]) / 10.0);
+        gyro_z = (toShort(buffer[i + 11], buffer[i + 12]) / 10.0);
+        accel_x = (toShort(buffer[i + 13], buffer[i + 14]) / 800.0);
+        accel_y = (toShort(buffer[i + 15], buffer[i + 16]) / 800.0);
+        accel_z = (toShort(buffer[i + 17], buffer[i + 18]) / 800.0);
+
+        // Convert scaled sensor data to SI units (for tilt calculations)
+        // TODO: Should the unit outputs be selectable?
+        gyro_x_si = gyro_x * deg_to_rad;
+        gyro_y_si = gyro_y * deg_to_rad;
+        gyro_z_si = gyro_z * deg_to_rad;
+        accel_x_si = accel_x * grav;
+        accel_y_si = accel_y * grav;
+        accel_z_si = accel_z * grav;
+
+        // Store timestamp for next iteration
+        previous_timestamp = buffer[i];
+
+        m_alpha = m_tau / (m_tau + m_dt);
+
+        if (first_run) {
+          // Set up inclinometer calculations for first run
+          accelAngleX = Math.atan2(accel_x_si, Math.sqrt((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
+          accelAngleY = Math.atan2(accel_y_si, Math.sqrt((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
+          compAngleX = accelAngleX;
+          compAngleY = accelAngleY;
         }
-        
-        // Calculate checksum
-        int calc_checksum = 0;
-        for(int k = 2; k < 20; k++ ) { // Cycle through STATUS, XYZ GYRO, XYZ ACCEL, TEMP, COUNTER (Ignore DUT Checksum)
-          calc_checksum += data_subset[k];
+        else {
+          // Run inclinometer calculations
+          accelAngleX = Math.atan2(accel_x_si, Math.sqrt((accel_y_si * accel_y_si) + (accel_z_si * accel_z_si)));
+          accelAngleY = Math.atan2(accel_y_si, Math.sqrt((accel_x_si * accel_x_si) + (accel_z_si * accel_z_si)));
+          accelAngleX = formatAccelRange(accelAngleX, accel_z_si);
+          accelAngleY = formatAccelRange(accelAngleY, accel_z_si);
+          compAngleX = compFilterProcess(compAngleX, accelAngleX, -gyro_y_si);
+          compAngleY = compFilterProcess(compAngleY, accelAngleY, gyro_x_si);
         }
 
-        // This is the data needed for Checksum
-        ByteBuffer bBuf = ByteBuffer.allocateDirect(2);
-        bBuf.put((byte)data_subset[20]); 
-        bBuf.put((byte)data_subset[21]);
-        //System.out.println(data_subset[20] + "," + data_subset[21]);
-        imu_checksum = ToUShort(bBuf);
-
-        //System.out.println("IMU Checksum: " + imu_checksum);
-
-        // Compare calculated vs read CRC. Don't update outputs if CRC-16 is bad
-        if(calc_checksum == imu_checksum) {
-          // Calculate delta-time (dt) using FPGA timestamps
-          timestamp_new = ToULong(readBuf.getInt(i * 4));
-          dt = (timestamp_new - timestamp_old)/1000000.0; // Calculate dt and convert us to seconds
-          timestamp_old = timestamp_new; // Store new timestamp in old variable for next cycle
-
-          gyro_x = ToShort(data_subset[4], data_subset[5]) * kDegreePerSecondPerLSB;
-          gyro_y = ToShort(data_subset[6], data_subset[7]) * kDegreePerSecondPerLSB;
-          gyro_z = ToShort(data_subset[8], data_subset[9]) * kDegreePerSecondPerLSB;
-          accel_x = ToShort(data_subset[10], data_subset[11]) * kGPerLSB;
-          accel_y = ToShort(data_subset[12], data_subset[13]) * kGPerLSB;
-          accel_z = ToShort(data_subset[14], data_subset[15]) * kGPerLSB;
-          temp = ToShort(data_subset[16], data_subset[17]) * kDegCPerLSB + kDegCOffset;
-          status = ToUShort(data_subset[2], data_subset[3]);
-          counter = ToUShort(data_subset[18], data_subset[19]);        
-
-          // Update global state
-          synchronized(this){
-            m_gyro_x = gyro_x;
-            m_gyro_y = gyro_y;
-            m_gyro_z = gyro_z;
-            m_accel_x = accel_x;
-            m_accel_y = accel_y;
-            m_accel_z = accel_z;
-            m_temp = temp;
-            m_status = status;
-            m_counter = counter;
-            this.dt = dt;
-
-            ++m_accum_count;
-            m_accum_gyro_x += gyro_x;
-            m_accum_gyro_y += gyro_y;
-            m_accum_gyro_z += gyro_z;
-
-            m_integ_gyro_x += (gyro_x - m_gyro_offset_x) * dt;
-            m_integ_gyro_y += (gyro_y - m_gyro_offset_y) * dt;
-            m_integ_gyro_z += (gyro_z - m_gyro_offset_z) * dt;
-            
+        synchronized (this) {
+          // Push data to global variables
+          if(first_run) {
+            // Don't accumulate first run. previous_timestamp will be "very" old and the integration will end up way off
+            m_integ_angle = 0.0;
           }
-        }else{
-          System.out.println("Invalid checksum");
+          else {
+            m_integ_angle += delta_angle;
+          }
+          m_gyro_x = gyro_x;
+          m_gyro_y = gyro_y;
+          m_gyro_z = gyro_z;
+          m_accel_x = accel_x;
+          m_accel_y = accel_y;
+          m_accel_z = accel_z;
+          m_compAngleX = compAngleX * rad_to_deg;
+          m_compAngleY = compAngleY * rad_to_deg;
+          m_accelAngleX = accelAngleX * rad_to_deg;
+          m_accelAngleY = accelAngleY * rad_to_deg;
         }
-	    }
+        first_run = false;
+      }
     }
+  }
+
+  /**
+   * 
+   * @param compAngle
+   * @param accAngle
+   * @return
+   */
+  private double formatFastConverge(double compAngle, double accAngle) {
+    if(compAngle > accAngle + Math.PI) {
+      compAngle = compAngle - 2.0 * Math.PI;
+    }
+    else if (accAngle > compAngle + Math.PI) {
+      compAngle = compAngle + 2.0 * Math.PI;
+    }
+    return compAngle; 
+  }
+
+  /**
+   * 
+   * @param compAngle
+   * @return
+   */
+  private double formatRange0to2PI(double compAngle) {
+    while(compAngle >= 2 * Math.PI) {
+      compAngle = compAngle - 2.0 * Math.PI;
+    }
+    while(compAngle < 0.0) {
+      compAngle = compAngle + 2.0 * Math.PI;
+    }
+    return compAngle;
+  }
+
+  /**
+   * 
+   * @param accelAngle
+   * @param accelZ
+   * @return
+   */
+  private double formatAccelRange(double accelAngle, double accelZ) {
+    if(accelZ < 0.0) {
+      accelAngle = Math.PI - accelAngle;
+    }
+    else if(accelZ > 0.0 && accelAngle < 0.0) {
+      accelAngle = 2.0 * Math.PI + accelAngle;
+    }
+    return accelAngle;
+  }
+
+  /**
+   * 
+   * @param compAngle
+   * @param accelAngle
+   * @param omega
+   * @return
+   */
+  private double compFilterProcess(double compAngle, double accelAngle, double omega) {
+    compAngle = formatFastConverge(compAngle, accelAngle);
+    compAngle = m_alpha * (compAngle + omega * m_dt) + (1.0 - m_alpha) * accelAngle;
+    compAngle = formatRange0to2PI(compAngle);
+    if(compAngle > Math.PI) {
+      compAngle = compAngle - 2.0 * Math.PI;
+    }
+    return compAngle;
   }
 
   /**
    * {@inheritDoc}
    */
-  public double getAngle() {
-    switch (m_yaw_axis) {
-      case kX: 
-        return getAngleX();
-      case kY: 
-        return getAngleY();
-      case kZ: 
-        return getAngleZ();
-    }
-    return 0.0;
+  public synchronized double getAngle() {
+    return m_integ_angle;
   }
 
   /**
    * {@inheritDoc}
    */
-  public double getRate() {
+  public synchronized double getRate() {
     switch (m_yaw_axis) {
-      case kX: 
-        return getRateX();
-      case kY: 
-        return getRateY();
-      case kZ: 
-        return getRateZ();
+    case kX:
+      return m_gyro_x;
+    case kY:
+      return m_gyro_y;
+    case kZ:
+      return m_gyro_z;
     }
     return 0.0;
   }
 
-  public synchronized double getAngleX() {
-    return m_integ_gyro_x;
+  /**
+   * 
+   * @return
+   */
+  public IMUAxis getYawAxis() {
+    return m_yaw_axis;
   }
 
-  public synchronized double getAngleY() {
-    return m_integ_gyro_y;
-  }
-
-  public synchronized double getAngleZ() {
-    return m_integ_gyro_z;
-  }
-
-  public synchronized double getRateX() {
+  /**
+   * 
+   * @return
+   */
+  public synchronized double getGyroInstantX() {
     return m_gyro_x;
   }
 
-  public synchronized double getRateY() {
+  /**
+   * 
+   * @return
+   */
+  public synchronized double getGyroInstantY() {
     return m_gyro_y;
   }
 
-  public synchronized double getRateZ() {
+  /**
+   * 
+   * @return
+   */
+  public synchronized double getGyroInstantZ() {
     return m_gyro_z;
   }
 
-  public synchronized double getAccelX() {
+  /**
+   * 
+   * @return
+   */
+  public synchronized double getAccelInstantX() {
     return m_accel_x;
   }
 
-  public synchronized double getAccelY() {
+  /**
+   * 
+   * @return
+   */
+  public synchronized double getAccelInstantY() {
     return m_accel_y;
   }
 
-  public synchronized double getAccelZ() {
+  /**
+   * 
+   * @return
+   */
+  public synchronized double getAccelInstantZ() {
     return m_accel_z;
   }
 
-  public synchronized double getTemperature() {
-    return m_temp;
+  /**
+   * 
+   * @return
+   */
+  public synchronized double getXComplementaryAngle() {
+    return m_compAngleX;
   }
 
-  public synchronized double getStatus() {
-    return m_status;
+  /**
+   * 
+   * @return
+   */
+  public synchronized double getYComplementaryAngle() {
+    return m_compAngleY;
   }
 
-  public synchronized double getCounter(){
-    return m_counter;
+  /**
+   * 
+   * @return
+   */
+  public synchronized double GetXFilteredAccelAngle() {
+    return m_accelAngleX;
   }
 
-  public synchronized double getdt(){
-    return dt;
+  /**
+   * 
+   * @return
+   */
+  public synchronized double GetYFilteredAccelAngle() {
+    return m_accelAngleY;
   }
-  
+
   /**
    * {@inheritDoc}
    */
   @Override
-  public void initSendable(SendableBuilder builder) {
+  public void initSendable(final SendableBuilder builder) {
     builder.setSmartDashboardType("ADIS16470 IMU");
-    NetworkTableInstance tb = builder.getEntry("GyroX").getInstance();
-    int gyroX = builder.getEntry("GyroX").getHandle();
-    int gyroY = builder.getEntry("GyroY").getHandle();
-    int gyroZ = builder.getEntry("GyroZ").getHandle();
-    int accelX = builder.getEntry("AccelX").getHandle();
-    int accelY = builder.getEntry("AccelY").getHandle();
-    int accelZ = builder.getEntry("AccelZ").getHandle();
-    int angleX = builder.getEntry("AngleX").getHandle();
-    int angleY = builder.getEntry("AngleY").getHandle();
-    int angleZ = builder.getEntry("AngleZ").getHandle();
-    int temp = builder.getEntry("Temperature").getHandle();
-    int dt = builder.getEntry("dt").getHandle();
-    int status = builder.getEntry("Status").getHandle();
-    int counter = builder.getEntry("Counter").getHandle();
+    final NetworkTableInstance tb = builder.getEntry("Yaw Angle").getInstance();
+    final int yaw_angle = builder.getEntry("Yaw Angle").getHandle();
     builder.setUpdateTable(new Runnable(){
       @Override
       public void run(){
-          new NetworkTableEntry(tb, gyroX).setDouble(getRateX());
-          new NetworkTableEntry(tb, gyroY).setDouble(getRateY());
-          new NetworkTableEntry(tb, gyroZ).setDouble(getRateZ());
-          new NetworkTableEntry(tb, accelX).setDouble(getAccelX());
-          new NetworkTableEntry(tb, accelY).setDouble(getAccelY());
-          new NetworkTableEntry(tb, accelZ).setDouble(getAccelZ());
-          new NetworkTableEntry(tb, angleX).setDouble(getAngleX());
-          new NetworkTableEntry(tb, angleY).setDouble(getAngleY());
-          new NetworkTableEntry(tb, angleZ).setDouble(getAngleZ());
-          new NetworkTableEntry(tb, temp).setDouble(getTemperature());
-          new NetworkTableEntry(tb, dt).setDouble(getdt());
-          new NetworkTableEntry(tb, status).setDouble(getStatus());
-          new NetworkTableEntry(tb, counter).setDouble(getCounter());
+          new NetworkTableEntry(tb, yaw_angle).setDouble(getAngle());
       }
     });
   }  
