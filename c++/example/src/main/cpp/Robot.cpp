@@ -37,21 +37,24 @@ void Robot::RobotPeriodic() {
   frc::SmartDashboard::PutNumber("YawAngle", m_imu.GetAngle());
   frc::SmartDashboard::PutNumber("XCompAngle", m_imu.GetXComplementaryAngle());
   frc::SmartDashboard::PutNumber("YCompAngle", m_imu.GetYComplementaryAngle());
-  bool m_runCal = frc::SmartDashboard::GetBoolean("RunCal", false);
-  bool m_configCal = frc::SmartDashboard::GetBoolean("ConfigCal", false);
-  bool m_reset = frc::SmartDashboard::GetBoolean("Reset", false);
-  bool m_setYawAxis = frc::SmartDashboard::GetBoolean("SetYawAxis", false);
+  m_runCal = frc::SmartDashboard::GetBoolean("RunCal", false);
+  m_configCal = frc::SmartDashboard::GetBoolean("ConfigCal", false);
+  m_reset = frc::SmartDashboard::GetBoolean("Reset", false);
+  m_setYawAxis = frc::SmartDashboard::GetBoolean("SetYawAxis", false);
   m_yawSelected = m_yawChooser.GetSelected();
 
   // Set IMU settings
   if (m_configCal) {
     m_imu.ConfigCalTime(frc::ADIS16470CalibrationTime::_8s);
+    m_configCal = frc::SmartDashboard::PutBoolean("ConfigCal", false);
   }
   if (m_reset) {
     m_imu.Reset();
+    m_reset = frc::SmartDashboard::PutBoolean("Reset", false);
   }
   if (m_runCal) {
     m_imu.Calibrate();
+    m_runCal = frc::SmartDashboard::PutBoolean("RunCal", false);
   }
   
   // Read the desired yaw axis from the dashboard
@@ -67,6 +70,7 @@ void Robot::RobotPeriodic() {
   // Set the desired yaw axis from the dashboard
   if (m_setYawAxis) {
     m_imu.SetYawAxis(m_yawActiveAxis);
+    m_setYawAxis = frc::SmartDashboard::PutBoolean("SetYawAxis", false);
   }
 }
 

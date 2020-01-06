@@ -35,5 +35,9 @@ class Robot : public frc::TimedRobot {
   const std::string kYawXAxis = "X-Axis";
   const std::string kYawYAxis = "Y-Axis";
   std::string m_yawSelected;
+  bool m_runCal = false;
+  bool m_configCal = false;
+  bool m_reset = false;
+  bool m_setYawAxis = false;
   frc::ADIS16470_IMU::IMUAxis m_yawActiveAxis = frc::ADIS16470_IMU::IMUAxis::kZ;
 };
