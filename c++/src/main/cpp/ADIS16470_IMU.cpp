@@ -746,29 +746,19 @@ double ADIS16470_IMU::GetAccelInstantZ() const {
   return m_accel_z;
 }
 
-
-double ADIS16470_IMU::GetXComplementaryAngle() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_compAngleX;
-}
-
-
-double ADIS16470_IMU::GetYComplementaryAngle() const {
-  std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_compAngleY;
-}
-
 /**
   * @brief Get the complementary angle measured around the X axis.
   *
   * @returns The measured complementary angle around the X axis, in degrees.
   *
   * This angle is calculated using the acclerometer and gyroscope outputs,
-  * with the earths gravity as a fixed acceleration reference.
+  * with the earths gravity as a fixed acceleration reference. The output value
+  * is filtered by "CompFilterProcess" to give a more stable result, with less angle
+  * error due to linear acceleration.
  **/
-double ADIS16470_IMU::GetXFilteredAccelAngle() const {
+double ADIS16470_IMU::GetXComplementaryAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
-  return m_accelAngleX;
+  return m_compAngleX;
 }
 
 /**
@@ -777,7 +767,35 @@ double ADIS16470_IMU::GetXFilteredAccelAngle() const {
   * @returns The measured complementary angle around the Y axis, in degrees.
   *
   * This angle is calculated using the acclerometer and gyroscope outputs,
-  * with the earths gravity as a fixed acceleration reference.
+  * with the earths gravity as a fixed acceleration reference. The output value
+  * is filtered by "CompFilterProcess" to give a more stable result, with less angle
+  * error due to linear acceleration.
+ **/
+double ADIS16470_IMU::GetYComplementaryAngle() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_compAngleY;
+}
+
+/**
+  * @brief Get the inclination angle measured around the X axis.
+  *
+  * @returns The measured inclination angle around the X axis, in degrees.
+  *
+  * This angle is calculated using the acclerometer  outputs, with
+  * the earths gravity as a fixed acceleration reference.
+ **/
+double ADIS16470_IMU::GetXFilteredAccelAngle() const {
+  std::lock_guard<wpi::mutex> sync(m_mutex);
+  return m_accelAngleX;
+}
+
+/**
+  * @brief Get the inclination angle measured around the Y axis.
+  *
+  * @returns The measured inclination angle around the Y axis, in degrees.
+  *
+  * This angle is calculated using the acclerometer  outputs, with
+  * the earths gravity as a fixed acceleration reference.
  **/
 double ADIS16470_IMU::GetYFilteredAccelAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
