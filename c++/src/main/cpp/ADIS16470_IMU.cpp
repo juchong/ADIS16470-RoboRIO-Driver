@@ -644,8 +644,6 @@ double ADIS16470_IMU::CompFilterProcess(double compAngle, double accelAngle, dou
 
 /**
   * @brief Returns the current integrated angle for the axis specified. 
-  *
-  * @param m_yaw_axis An enum indicating the axis chosen to act as the yaw axis.
   * 
   * @return The current integrated angle in degrees.
   *
