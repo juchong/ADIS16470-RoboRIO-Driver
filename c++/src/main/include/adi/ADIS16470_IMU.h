@@ -240,7 +240,7 @@ class ADIS16470_IMU : public GyroBase {
    */
   double GetAngle() const override;
 
-  double GetRate() const;
+  double GetRate() const override;
 
   double GetGyroInstantX() const;
 
@@ -265,9 +265,6 @@ class ADIS16470_IMU : public GyroBase {
   IMUAxis GetYawAxis() const;
 
   int SetYawAxis(IMUAxis yaw_axis);
-
-  // IMU yaw axis
-  IMUAxis m_yaw_axis;
 
   void InitSendable(SendableBuilder& builder) override;
 
@@ -311,6 +308,9 @@ class ADIS16470_IMU : public GyroBase {
   void Acquire();
 
   void Close();
+
+  // IMU yaw axis
+  IMUAxis m_yaw_axis;
 
   // Integrated gyro value
   double m_integ_angle = 0.0;

@@ -131,10 +131,10 @@ bool ADIS16470_IMU::SwitchToStandardSPI(){
       //  to be sure we got it all. Yuck.
       uint32_t trashBuffer[200];
       Wait(0.1);
-      int data_count = m_spi->ReadAutoReceivedData(trashBuffer, 0, 0.0);
+      int data_count = m_spi->ReadAutoReceivedData(trashBuffer, 0, 0_s);
       while (data_count > 0) {
-        data_count = m_spi->ReadAutoReceivedData(trashBuffer, 0, 0);
-        m_spi->ReadAutoReceivedData(trashBuffer, data_count, 0);
+        data_count = m_spi->ReadAutoReceivedData(trashBuffer, 0, 0_s);
+        m_spi->ReadAutoReceivedData(trashBuffer, data_count, 0_s);
       }
       std::cout << "Paused the auto SPI successfully!" << std::endl;
       }
