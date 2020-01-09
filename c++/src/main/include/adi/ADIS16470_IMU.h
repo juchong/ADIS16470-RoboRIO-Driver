@@ -179,6 +179,9 @@ const double grav = 9.81;
 class ADIS16470_IMU : public GyroBase {
  public:
 
+/**
+  * @brief Enum representing the three orthogonal IMU axis (x, y, z)
+ **/
  enum IMUAxis { kX, kY, kZ };
 
   /**
@@ -240,7 +243,7 @@ class ADIS16470_IMU : public GyroBase {
    */
   double GetAngle() const override;
 
-  double GetRate() const override;
+  double GetRate() const;
 
   double GetGyroInstantX() const;
 
@@ -265,6 +268,11 @@ class ADIS16470_IMU : public GyroBase {
   IMUAxis GetYawAxis() const;
 
   int SetYawAxis(IMUAxis yaw_axis);
+
+/**
+  * @brief Public member to get or set the IMU yaw axis
+ **/
+  IMUAxis m_yaw_axis;
 
   void InitSendable(SendableBuilder& builder) override;
 
@@ -308,9 +316,6 @@ class ADIS16470_IMU : public GyroBase {
   void Acquire();
 
   void Close();
-
-  // IMU yaw axis
-  IMUAxis m_yaw_axis;
 
   // Integrated gyro value
   double m_integ_angle = 0.0;

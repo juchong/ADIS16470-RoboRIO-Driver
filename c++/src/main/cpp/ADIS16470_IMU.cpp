@@ -1,11 +1,14 @@
-/*----------------------------------------------------------------------------*/
-/* Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.           */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
-/*                                                                            */
-/* Juan Chong - frcsupport@analog.com                                         */
-/*----------------------------------------------------------------------------*/
+/**
+  * Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.
+  * Open Source Software - may be modified and shared by FRC teams. The code
+  * must be accompanied by the FIRST BSD license file in the root directory of
+  * the project.
+  * 
+  * @file		ADIS16470_IMU.cpp
+  * @date		12/5/2019
+  * @author		Juan Chong - frcsupport@analog.com 
+  * @brief		Interfacing functions for the ADIS16470 on a RoboRIO.
+ **/
 
 #include <string>
 #include <iostream>
@@ -23,22 +26,58 @@
 #include <hal/HAL.h>
 
 /* Helpful conversion functions */
+
+/**
+  * @brief Convert first four elements in a byte array to a signed integer.
+  * 
+  * @param buf The array of uintegers holding byte values to convert. Most significant byte in index 0.
+  *
+  * @returns The converted signed integer value.
+ **/
 static inline int32_t ToInt(const uint32_t *buf){
   return (int32_t)( (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3] );
 }
 
+/**
+  * @brief Convert first two elements in a byte array to an unsigned short.
+  * 
+  * @param buf The array of uintegers holding byte values to convert. Most significant byte in index 0.
+  *
+  * @returns The converted unsigned short value.
+ **/
 static inline uint16_t BuffToUShort(const uint32_t* buf) {
   return ((uint16_t)(buf[0]) << 8) | buf[1];
 }
 
+/**
+  * @brief Convert first two elements in a byte array to an signed short.
+  * 
+  * @param buf The array of uintegers holding byte values to convert. Most significant byte in index 0.
+  *
+  * @returns The converted signed short value.
+ **/
 static inline int16_t BuffToShort(const uint32_t* buf) {
   return ((int16_t)(buf[0]) << 8) | buf[1];
 }
 
+/**
+  * @brief Convert first two elements in a byte array to an unsigned short.
+  * 
+  * @param buf The array of bytes to convert. Most significant byte in index 0.
+  *
+  * @returns The converted unsigned short value.
+ **/
 static inline uint16_t ToUShort(const uint8_t* buf) {
   return ((uint16_t)(buf[0]) << 8) | buf[1];
 }
 
+/**
+  * @brief Convert first two elements in a byte array to an signed short.
+  * 
+  * @param buf The array of bytes to convert. Most significant byte in index 0.
+  *
+  * @returns The converted signed short value.
+ **/
 static inline int16_t ToShort(const uint8_t* buf) {
   return (int16_t)(((uint16_t)(buf[0]) << 8) | buf[1]);
 }
@@ -288,6 +327,14 @@ void ADIS16470_IMU::Calibrate() {
   }
 }
 
+/**
+  * @brief Select the IMU yaw axis (perpendicular to gravity)
+  *
+  * @param yaw_axis The axis selected to be the yaw axis.
+  *
+  * The integrated delta angle value will be read from the ADIS16470
+  * every data ready period for the axis which is selected as the yaw axis.
+ **/
 int ADIS16470_IMU::SetYawAxis(IMUAxis yaw_axis) {
   if(m_yaw_axis == yaw_axis)
     return 1; 
@@ -611,6 +658,11 @@ double ADIS16470_IMU::GetAngle() const {
   return m_integ_angle;
 }
 
+/**
+  * @brief Get the IMU rotation rate for the selected yaw axis.
+  *
+  * @returns The measured angular rotation rate about the selected axis, in degrees/s
+ **/
 double ADIS16470_IMU::GetRate() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
     switch (m_yaw_axis) {
@@ -625,55 +677,108 @@ double ADIS16470_IMU::GetRate() const {
   }
 }
 
+/**
+  * @brief Get the selected yaw axis.
+  *
+  * @returns The currently set yaw axis (x, y, or z).
+ **/
 ADIS16470_IMU::IMUAxis ADIS16470_IMU::GetYawAxis() const {
   return m_yaw_axis;
 }
 
+/**
+  * @brief Get the angular rotation rate measured on the X axis.
+  *
+  * @returns The measured angular rotation rate about the X axis, in degrees/s
+ **/
 double ADIS16470_IMU::GetGyroInstantX() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_gyro_x;
 }
 
+/**
+  * @brief Get the angular rotation rate measured on the Y axis.
+  *
+  * @returns The measured angular rotation rate about the Y axis, in degrees/s
+ **/
 double ADIS16470_IMU::GetGyroInstantY() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_gyro_y;
 }
 
+/**
+  * @brief Get the angular rotation rate measured on the Z axis.
+  *
+  * @returns The measured angular rotation rate about the Z axis, in degrees/s
+ **/
 double ADIS16470_IMU::GetGyroInstantZ() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_gyro_z;
 }
 
+/**
+  * @brief Get the linear acceleration measured on the X axis.
+  *
+  * @returns The measured linear acceleration on the X axis, in g's.
+ **/
 double ADIS16470_IMU::GetAccelInstantX() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_accel_x;
 }
 
+/**
+  * @brief Get the linear acceleration measured on the Y axis.
+  *
+  * @returns The measured linear acceleration on the Y axis, in g's.
+ **/
 double ADIS16470_IMU::GetAccelInstantY() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_accel_y;
 }
 
+/**
+  * @brief Get the linear acceleration measured on the Z axis.
+  *
+  * @returns The measured linear acceleration on the Z axis, in g's.
+ **/
 double ADIS16470_IMU::GetAccelInstantZ() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_accel_z;
 }
+
 
 double ADIS16470_IMU::GetXComplementaryAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_compAngleX;
 }
 
+
 double ADIS16470_IMU::GetYComplementaryAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_compAngleY;
 }
 
+/**
+  * @brief Get the complementary angle measured around the X axis.
+  *
+  * @returns The measured complementary angle around the X axis, in degrees.
+  *
+  * This angle is calculated using the acclerometer and gyroscope outputs,
+  * with the earths gravity as a fixed acceleration reference.
+ **/
 double ADIS16470_IMU::GetXFilteredAccelAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_accelAngleX;
 }
 
+/**
+  * @brief Get the complementary angle measured around the Y axis.
+  *
+  * @returns The measured complementary angle around the Y axis, in degrees.
+  *
+  * This angle is calculated using the acclerometer and gyroscope outputs,
+  * with the earths gravity as a fixed acceleration reference.
+ **/
 double ADIS16470_IMU::GetYFilteredAccelAngle() const {
   std::lock_guard<wpi::mutex> sync(m_mutex);
   return m_accelAngleY;
