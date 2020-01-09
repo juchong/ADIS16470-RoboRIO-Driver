@@ -1,11 +1,14 @@
-/*----------------------------------------------------------------------------*/
-/* Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.           */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
-/*                                                                            */
-/* Juan Chong - frcsupport@analog.com                                         */
-/*----------------------------------------------------------------------------*/
+/**
+  * Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.
+  * Open Source Software - may be modified and shared by FRC teams. The code
+  * must be accompanied by the FIRST BSD license file in the root directory of
+  * the project.
+  * 
+  * @file		ADIS16470_IMU.cpp
+  * @date		12/5/2019
+  * @author		Juan Chong - frcsupport@analog.com 
+  * @brief		Interfacing functions for the ADIS16470 on a RoboRIO.
+  **/
 
 #include <string>
 #include <iostream>
@@ -23,14 +26,36 @@
 #include <hal/HAL.h>
 
 /* Helpful conversion functions */
+
+/**
+  * @brief Convert first four elements in a byte array to a signed integer.
+  * 
+  * @param buf The array of uintegers holding byte values to convert. Most significant byte in index 0.
+  *
+  * @returns The converted signed integer value.
+ **/
 static inline int32_t ToInt(const uint32_t *buf){
   return (int32_t)( (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3] );
 }
 
+/**
+  * @brief Convert first two elements in a byte array to an unsigned short.
+  * 
+  * @param buf The array of uintegers holding byte values to convert. Most significant byte in index 0.
+  *
+  * @returns The converted unsigned short value.
+ **/
 static inline uint16_t BuffToUShort(const uint32_t* buf) {
   return ((uint16_t)(buf[0]) << 8) | buf[1];
 }
 
+/**
+  * @brief Convert first two elements in a byte array to an signed short.
+  * 
+  * @param buf The array of uintegers holding byte values to convert. Most significant byte in index 0.
+  *
+  * @returns The converted signed short value.
+ **/
 static inline int16_t BuffToShort(const uint32_t* buf) {
   return ((int16_t)(buf[0]) << 8) | buf[1];
 }
