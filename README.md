@@ -21,6 +21,10 @@ Tutorial videos, how-to guides, and additional resources can be found on the [AD
 
 The IMU driver currently supports all three official FRC languages (C++, Java, and LabVIEW). LabVIEW libraries should be installed using the NI Package Manager.  C++ and Java libraries should be installed using maven.
 
+## Is the API documented?
+
+Yes, it is! The C++ Doxygen is located [here](https://juchong.github.io/ADIS16470-RoboRIO-Driver/index.html). The Java version is coming soon!
+
 ## What do I need to get started?
 
 To use the software, you need access to a RoboRIO and the ADIS16470 RoboRIO Breakout Board. This software is based on the FRC 2020 software distribution and relies on the latest WPILib libraries and RoboRIO image to interface with the IMU. Previous (pre-2020) versions of LabVIEW and WPILib libraries are **not** supported. 
