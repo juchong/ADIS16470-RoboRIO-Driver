@@ -1,14 +1,5 @@
 var searchData=
 [
-  ['getaccelinstantx_4',['GetAccelInstantX',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#a500beed3ff8c25d7fa7591c16bbce6f5',1,'frc::ADIS16470_IMU']]],
-  ['getaccelinstanty_5',['GetAccelInstantY',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#a96ae9af71261e8ba194b77d4f929a456',1,'frc::ADIS16470_IMU']]],
-  ['getaccelinstantz_6',['GetAccelInstantZ',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#acb957e179be15943b30dd63fdf41dcfc',1,'frc::ADIS16470_IMU']]],
-  ['getangle_7',['GetAngle',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#a1b946c9dfa5fff9df3698faafea6807d',1,'frc::ADIS16470_IMU']]],
-  ['getgyroinstantx_8',['GetGyroInstantX',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#a39bbb906a524e2dd3ea64513b5b61b16',1,'frc::ADIS16470_IMU']]],
-  ['getgyroinstanty_9',['GetGyroInstantY',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#aa75e282487b0fa27dc352f6f6b61fa40',1,'frc::ADIS16470_IMU']]],
-  ['getgyroinstantz_10',['GetGyroInstantZ',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#aee47eb9c8f4ade94c1439da7fdc31677',1,'frc::ADIS16470_IMU']]],
-  ['getrate_11',['GetRate',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#a0c277b0aad15def3e9f683b7961da6b2',1,'frc::ADIS16470_IMU']]],
-  ['getxfilteredaccelangle_12',['GetXFilteredAccelAngle',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#abcc9b99ec8d198e58eafaed529c8070f',1,'frc::ADIS16470_IMU']]],
-  ['getyawaxis_13',['GetYawAxis',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#a96da02679713e0fdb81f79bb52fb6403',1,'frc::ADIS16470_IMU']]],
-  ['getyfilteredaccelangle_14',['GetYFilteredAccelAngle',['../classfrc_1_1_a_d_i_s16470___i_m_u.html#a2e6519b172908c1d1b444b0a7d305d20',1,'frc::ADIS16470_IMU']]]
+  ['deg_5fto_5frad',['deg_to_rad',['../_a_d_i_s16470___i_m_u_8h.html#a143e11a17a1e19be14ddac338f69c064',1,'frc']]],
+  ['delta_5fangle_5fsf',['delta_angle_sf',['../_a_d_i_s16470___i_m_u_8h.html#a2935d59e0bf22fe7547951b22322a04e',1,'frc']]]
 ];
