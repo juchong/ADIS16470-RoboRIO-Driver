@@ -1,14 +1,11 @@
-/**
-  * Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.
-  * Open Source Software - may be modified and shared by FRC teams. The code
-  * must be accompanied by the FIRST BSD license file in the root directory of
-  * the project.
-  * 
-  * @file		ADIS16470_IMU.h
-  * @date		12/5/2019
-  * @author		Juan Chong - frcsupport@analog.com 
-  * @brief		Header file for the ADIS16470 interfacing library.
- **/
+/*----------------------------------------------------------------------------*/
+/* Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.           */
+/* Open Source Software - may be modified and shared by FRC teams. The code   */
+/* must be accompanied by the FIRST BSD license file in the root directory of */
+/* the project.                                                               */
+/*                                                                            */
+/* Juan Chong - frcsupport@analog.com                                         */
+/*----------------------------------------------------------------------------*/
 
 #pragma once
 
@@ -28,7 +25,7 @@
 
 namespace frc {
 
-/** ADIS16470 Calibration Time Enum Class */
+/* ADIS16470 Calibration Time Enum Class */
 enum class ADIS16470CalibrationTime { 
   _32ms = 0,
   _64ms = 1,
@@ -161,17 +158,9 @@ FLASH_CNT
 };
 
 /* ADIS16470 Constants */
-
-/** Delta angle output to degrees scale factor */
 const double delta_angle_sf = 2160.0 / 2147483648.0;
-
-/** Radians to degrees conversion factor */
 const double rad_to_deg = 57.2957795;
-
-/** Degrees to radians conversion factor */
 const double deg_to_rad = 0.0174532;
-
-/** Acceleration due to gravity (m/s^2) */
 const double grav = 9.81;
 
 /**
@@ -186,12 +175,10 @@ const double grav = 9.81;
  *
  * This class is for the ADIS16470 IMU connected via the primary SPI port available on the RoboRIO.
  */
+
 class ADIS16470_IMU : public GyroBase {
  public:
 
-/**
-  * @brief Enum representing the three orthogonal IMU axis (x, y, z)
- **/
  enum IMUAxis { kX, kY, kZ };
 
   /**
@@ -217,22 +204,15 @@ class ADIS16470_IMU : public GyroBase {
    */
   ~ADIS16470_IMU();
 
- /**
-   * @brief Default ADIS16470 IMU constructor.
-   */
   ADIS16470_IMU(ADIS16470_IMU&&) = default;
-  
- /**
-   * @brief Overload of the equality operator for the ADIS16470 class. Uses default implementation.
-   */
   ADIS16470_IMU& operator=(ADIS16470_IMU&&) = default;
 
- /**
+  /**
    * @brief Switches the active SPI port to standard SPI mode, writes the command to activate the new null configuration, and re-enables auto SPI.
    */
   void Calibrate() override;
 
- /**
+  /**
    * @brief Switches the active SPI port to standard SPI mode, writes a new value to the NULL_CNFG register in the IMU, and re-enables auto SPI.
    */
   int ConfigCalTime(ADIS16470CalibrationTime new_cal_time);
@@ -286,9 +266,7 @@ class ADIS16470_IMU : public GyroBase {
 
   int SetYawAxis(IMUAxis yaw_axis);
 
-/**
-  * @brief Public member to get or set the IMU yaw axis
- **/
+  // IMU yaw axis
   IMUAxis m_yaw_axis;
 
   void InitSendable(SendableBuilder& builder) override;
