@@ -30,15 +30,21 @@ You can use the online method to install the latest C++ and Java API if your dev
 3. Select **Manage vendor libraries**
 4. Select **Install new library (online)**
 5. Enter the following installation URL and press ENTER:
+
    http://maven.highcurrent.io/vendordeps/ADIS16470.json
+   
 6. Be sure to check out the example repository if you have questions about the installation
+
    https://github.com/juchong/ADIS16470-RoboRIO-Driver-Examples
 
 #### LabVIEW Users:
 
 LabVIEW libraries should be installed using the NI Package Manager. Check out the releases page for the latest package installer.
+
 ​	https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases
+
 Additional LabVIEW instructions and API details can be found in the LabVIEW subdirectory in this repository. 
+
 ​	https://github.com/juchong/ADIS16470-RoboRIO-Driver/tree/master/LabVIEW
 
 ## Is the API documented?
