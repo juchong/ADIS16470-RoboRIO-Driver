@@ -17,8 +17,6 @@ To simplify the library as much as possible for the 2020 season, only a few, key
 
 Tutorial videos, how-to guides, and additional resources can be found on the [ADI FIRST Robotics Wiki Page](https://wiki.analog.com/first/first_robotics_donation_resources).
 
-
-
 ## How do I install this library?
 
 The IMU driver currently supports all three official FRC languages (C++, Java, and LabVIEW). 
@@ -28,44 +26,29 @@ The IMU driver currently supports all three official FRC languages (C++, Java, a
 You can use the online method to install the latest C++ and Java API if your development machine can be connected to the internet:
 
 1. Open your robot project in WPILib VSCode
-
 2. Click on the WPI icon in the corner to open the WPI Command Pallet
-
 3. Select **Manage vendor libraries**
-
 4. Select **Install new library (online)**
-
 5. Enter the following installation URL and press ENTER:
-
    http://maven.highcurrent.io/vendordeps/ADIS16470.json
-
 6. Be sure to check out the example repository if you have questions about the installation
    https://github.com/juchong/ADIS16470-RoboRIO-Driver-Examples
 
 #### LabVIEW Users:
 
 LabVIEW libraries should be installed using the NI Package Manager. Check out the releases page for the latest package installer.
-
 ​	https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases
-
 Additional LabVIEW instructions and API details can be found in the LabVIEW subdirectory in this repository. 
-
 ​	https://github.com/juchong/ADIS16470-RoboRIO-Driver/tree/master/LabVIEW
-
-
 
 ## Is the API documented?
 
 Yes, it is! The C++ Doxygen is located [here](https://juchong.github.io/ADIS16470-RoboRIO-Driver/index.html). The Java version is coming soon!
 
-
-
 ## Can I order my own PCB? Where can I find details about the circuit board?
 
 The schematic, layout, and manufacturing files can be found in this repository under `hardware/PCB Reference Files/`. 
 Copies of this board may be purchased from OSH Park by following this [link](https://oshpark.com/shared_projects/Ah67Qbv9). 
-
-
 
 ## What do I need to get started?
 
