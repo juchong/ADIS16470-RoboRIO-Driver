@@ -21,7 +21,7 @@ Tutorial videos, how-to guides, and additional resources can be found on the [AD
 
 The IMU driver currently supports all three official FRC languages (C++, Java, and LabVIEW). 
 
-#### C++ and Java Users: 
+#### C++ and Java Users (Online Install): 
 
 You can use the online method to install the latest C++ and Java API if your development machine can be connected to the internet:
 
@@ -29,23 +29,32 @@ You can use the online method to install the latest C++ and Java API if your dev
 2. Click on the WPI icon in the corner to open the WPI Command Pallet
 3. Select **Manage vendor libraries**
 4. Select **Install new library (online)**
-5. Enter the following installation URL and press ENTER:
+5. Enter the installation URL listed below and press ENTER
 
-   http://maven.highcurrent.io/vendordeps/ADIS16470.json
-   
+http://maven.highcurrent.io/vendordeps/ADIS16470.json
+
 6. Be sure to check out the example repository if you have questions about the installation
 
-   https://github.com/juchong/ADIS16470-RoboRIO-Driver-Examples
+https://github.com/juchong/ADIS16470-RoboRIO-Driver-Examples
+   
+#### C++ and Java Users (Offline Install): 
+An offline installation option is available for users whose machines do not have acces to the internet:
+
+1. Open your robot project in WPILib VSCode
+2. Click on the WPI icon in the corner to open the WPI Command Pallet
+3. Select **Manage vendor libraries** 
+4. Select **Install new library (offline)**
+5. Enter the path to the latest .zip file downloaded from the releases page of this repository [link](https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases)
 
 #### LabVIEW Users:
 
 LabVIEW libraries should be installed using the NI Package Manager. Check out the releases page for the latest package installer.
 
-​	https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases
+https://github.com/juchong/ADIS16470-RoboRIO-Driver/releases
 
 Additional LabVIEW instructions and API details can be found in the LabVIEW subdirectory in this repository. 
 
-​	https://github.com/juchong/ADIS16470-RoboRIO-Driver/tree/master/LabVIEW
+https://github.com/juchong/ADIS16470-RoboRIO-Driver/tree/master/LabVIEW
 
 ## Is the API documented?
 
