@@ -46,7 +46,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   private static final int X_GYRO_OUT     =   0x06;  //X-axis gyroscope output, upper word
   private static final int Y_GYRO_LOW     =   0x08;  //Y-axis gyroscope output, lower word
   private static final int Y_GYRO_OUT     =   0x0A;  //Y-axis gyroscope output, upper word
-  private static final int Z_GYRO_LOW     = 	 0x0C;  //Z-axis gyroscope output, lower word
+  private static final int Z_GYRO_LOW     =   0x0C;  //Z-axis gyroscope output, lower word
   private static final int Z_GYRO_OUT     =   0x0E;  //Z-axis gyroscope output, upper word
   private static final int X_ACCL_LOW     =   0x10;  //X-axis accelerometer output, lower word
   private static final int X_ACCL_OUT     =   0x12;  //X-axis accelerometer output, upper word
@@ -170,7 +170,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   private static final double deg_to_rad = 0.0174532;
   private static final double grav = 9.81;
 
-  // AHRS yaw axis
+  // User-specified yaw axis
   private IMUAxis m_yaw_axis;
 
   // Instant raw outputs
@@ -289,7 +289,6 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
 
     // Report usage and post data to DS
     HAL.report(tResourceType.kResourceType_ADIS16470, 0);
-    setName("ADIS16470", 0);
   }
 
   /**
@@ -939,7 +938,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
    * 
    * @return
    */
-  public synchronized double GetXFilteredAccelAngle() {
+  public synchronized double getXFilteredAccelAngle() {
     return m_accelAngleX;
   }
 
@@ -947,23 +946,8 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
    * 
    * @return
    */
-  public synchronized double GetYFilteredAccelAngle() {
+  public synchronized double getYFilteredAccelAngle() {
     return m_accelAngleY;
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void initSendable(final SendableBuilder builder) {
-    builder.setSmartDashboardType("ADIS16470 IMU");
-    final NetworkTableInstance tb = builder.getEntry("Yaw Angle").getInstance();
-    final int yaw_angle = builder.getEntry("Yaw Angle").getHandle();
-    builder.setUpdateTable(new Runnable(){
-      @Override
-      public void run(){
-          new NetworkTableEntry(tb, yaw_angle).setDouble(getAngle());
-      }
-    });
-  }  
 }
