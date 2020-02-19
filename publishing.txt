@@ -1,8 +1,7 @@
 - Update the version number in the root publish.gradle (pubVersion property)
-- Run gradlew generateReleaseZip
-    - Generate a JSON with the correct version (based on the template)
-    - This will build the java and c++ versionss
-    - Generate maven artifacts for both
-    - Create a release zip of the json and maven artifacts
-
-Copy the contents of the zip to the maven repo (maven.highcurrent.io)
+- Run gradlew clean
+- Run gradlew build
+    - This will generate a JSON with the correct version (based on the template) in /build/vendordeps/
+    - Open the JSON and replace the double quotes "" "" with quotes " "
+    - This will build both the java and c++ versions and generate maven artifacts for both
+    - Upload the maven artifacts and JSON to the folder
