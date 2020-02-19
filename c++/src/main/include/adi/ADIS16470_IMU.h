@@ -340,7 +340,7 @@ class ADIS16470_IMU : public GyroBase {
   SPI::Port m_spi_port;
   uint16_t m_calibration_time;
   SPI *m_spi = nullptr;
-  DigitalInput *m_auto_interrupt;
+  DigitalInput *m_auto_interrupt = nullptr;
   
   std::thread m_acquire_task;
 

@@ -72,10 +72,10 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
 
   // Set IMU internal decimation to 2000 SPS
   WriteRegister(DEC_RATE, 0x0000);
-  // Set data ready polarity (HIGH = Good Data), gSense Compensation, PoP
-  WriteRegister(MSC_CTRL, 0x0001);
+  // Set data ready polarity (HIGH = Good Data), Enable gSense Compensation and PoP
+  WriteRegister(MSC_CTRL, 0x00C1);
   // Configure IMU internal Bartlett filter
-  WriteRegister(FILT_CTRL, 0x0002);
+  WriteRegister(FILT_CTRL, 0x0000);
   // Configure continuous bias calibration time based on user setting
   WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
 
@@ -218,7 +218,8 @@ bool ADIS16470_IMU::SwitchToAutoSPI(){
   // Configure auto stall time  
   m_spi->ConfigureAutoStall(HAL_SPI_kOnboardCS0, 5, 1000, 1);
   // Kick off DMA SPI (Note: Device configration impossible after SPI DMA is activated)
-  m_spi->StartAutoTrigger(*m_auto_interrupt, false, true);
+  // DR High = Data good (data capture should be triggered on the rising edge)
+  m_spi->StartAutoTrigger(*m_auto_interrupt, true, false);
   // Check to see if the acquire thread is running. If not, kick one off.
   if(!m_thread_idle) {
     m_first_run = true;
