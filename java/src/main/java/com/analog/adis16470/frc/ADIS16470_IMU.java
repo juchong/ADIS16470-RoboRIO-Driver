@@ -258,11 +258,11 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     // Set IMU internal decimation to 2000 SPS
     writeRegister(DEC_RATE, 0x0000);
 
-    // Enable Data Ready (LOW = Good Data), gSense Compensation, PoP
-    writeRegister(MSC_CTRL, 0x0001);
+    // Set data ready polarity (HIGH = Good Data), Enable gSense Compensation and PoP
+    writeRegister(MSC_CTRL, 0x00C1);
 
     // Configure IMU internal Bartlett filter
-    writeRegister(FILT_CTRL, 0x0002);
+    writeRegister(FILT_CTRL, 0x0000);
     
     // Configure continuous bias calibration time based on user setting
     writeRegister(NULL_CNFG, (m_calibration_time | 0x0700));
@@ -466,7 +466,8 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     // Configure auto stall time  
     m_spi.configureAutoStall(5, 1000, 1);
     // Kick off auto SPI (Note: Device configration impossible after auto SPI is activated)
-    m_spi.startAutoTrigger(m_auto_interrupt, false, true);
+    // DR High = Data good (data capture should be triggered on the rising edge)
+    m_spi.startAutoTrigger(m_auto_interrupt, true, false);
 
     // Check to see if the acquire thread is running. If not, kick one off.
     if(!m_acquire_task.isAlive()) {
