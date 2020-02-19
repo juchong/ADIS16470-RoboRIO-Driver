@@ -180,7 +180,6 @@ This example expects a USB cable connected from your development PC to the Type 
 		<Item Name="Build Specifications" Type="Build">
 			<Property Name="GIT_FILE" Type="Bool">false</Property>
 			<Item Name="ADIS16470 IMU" Type="Source Distribution">
-				<Property Name="Bld_autoIncrement" Type="Bool">true</Property>
 				<Property Name="Bld_buildCacheID" Type="Str">{BBA0484B-CA77-4464-A2BB-E8E179FEADC6}</Property>
 				<Property Name="Bld_buildSpecName" Type="Str">ADIS16470 IMU</Property>
 				<Property Name="Bld_excludedDirectory[0]" Type="Path">vi.lib</Property>
@@ -197,8 +196,8 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="Bld_localDestDir" Type="Path">../builds/ADIS16470-IMU/ThirdParty</Property>
 				<Property Name="Bld_localDestDirType" Type="Str">relativeToProject</Property>
 				<Property Name="Bld_previewCacheID" Type="Str">{5C9CA66C-F16B-4A3B-95C3-90689364D2FE}</Property>
-				<Property Name="Bld_version.build" Type="Int">19</Property>
-				<Property Name="Bld_version.major" Type="Int">1</Property>
+				<Property Name="Bld_version.major" Type="Int">2020</Property>
+				<Property Name="Bld_version.minor" Type="Int">2</Property>
 				<Property Name="Destination[0].destName" Type="Str">Destination Directory</Property>
 				<Property Name="Destination[0].path" Type="Path">../builds/ADIS16470-IMU/ThirdParty</Property>
 				<Property Name="Destination[0].path.type" Type="Str">relativeToProject</Property>
@@ -214,7 +213,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="Destination[3].path" Type="Path">../builds/ADIS16470-IMU/ThirdParty/ADI/ADIS16470/SubVI</Property>
 				<Property Name="Destination[3].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="DestinationCount" Type="Int">4</Property>
-				<Property Name="Source[0].itemID" Type="Str">{CDC44022-6758-493E-BE3E-B90EAFC83247}</Property>
+				<Property Name="Source[0].itemID" Type="Str">{E49C4898-C418-4684-95B8-9845B53AAD6B}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].Container.applyDestination" Type="Bool">true</Property>
 				<Property Name="Source[1].Container.applyInclusion" Type="Bool">true</Property>
@@ -247,7 +246,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="NIPKG_installerArtifacts" Type="Str"></Property>
 				<Property Name="NIPKG_installerBuiltBefore" Type="Bool">false</Property>
 				<Property Name="NIPKG_installerDestination" Type="Path"></Property>
-				<Property Name="NIPKG_lastBuiltPackage" Type="Str">adis16470-imu_2020.0.0-5_windows_all.nipkg</Property>
+				<Property Name="NIPKG_lastBuiltPackage" Type="Str">adis16470-imu_2020.2.0-0_windows_all.nipkg</Property>
 				<Property Name="NIPKG_license" Type="Ref"></Property>
 				<Property Name="NIPKG_releaseNotes" Type="Str"></Property>
 				<Property Name="NIPKG_storeProduct" Type="Bool">false</Property>
@@ -255,7 +254,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="PKG_actions.Count" Type="Int">0</Property>
 				<Property Name="PKG_autoIncrementBuild" Type="Bool">true</Property>
 				<Property Name="PKG_autoSelectDeps" Type="Bool">false</Property>
-				<Property Name="PKG_buildNumber" Type="Int">6</Property>
+				<Property Name="PKG_buildNumber" Type="Int">1</Property>
 				<Property Name="PKG_buildSpecName" Type="Str">ADIS16470 IMU Package</Property>
 				<Property Name="PKG_dependencies.Count" Type="Int">0</Property>
 				<Property Name="PKG_description" Type="Str"></Property>
@@ -304,7 +303,7 @@ This example expects a USB cable connected from your development PC to the Type 
 				<Property Name="PKG_sources[0].ID" Type="Ref">/My Computer/Build Specifications/ADIS16470 IMU</Property>
 				<Property Name="PKG_sources[0].Type" Type="Str">Build</Property>
 				<Property Name="PKG_synopsis" Type="Str">ADIS16470 IMU Library for FIRST Robotics and the RoboRIO Built Around WPILib</Property>
-				<Property Name="PKG_version" Type="Str">2020.0.0</Property>
+				<Property Name="PKG_version" Type="Str">2020.2.0</Property>
 			</Item>
 		</Item>
 	</Item>
