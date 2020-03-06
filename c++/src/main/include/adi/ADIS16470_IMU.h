@@ -158,7 +158,7 @@ FLASH_CNT
 };
 
 /* ADIS16470 Constants */
-const double delta_angle_sf = 2160.0 / 2147483648.0;
+const double delta_angle_sf = 2160.0 / 2147483648.0; /* 2160 / (2^31) */
 const double rad_to_deg = 57.2957795;
 const double deg_to_rad = 0.0174532;
 const double grav = 9.81;

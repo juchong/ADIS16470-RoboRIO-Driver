@@ -70,8 +70,8 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
     return;
   }
 
-  // Set IMU internal decimation to 2000 SPS
-  WriteRegister(DEC_RATE, 0x0000);
+  // Set IMU internal decimation to 4 (output data rate of 2000 SPS / (4 + 1) = 400Hz)
+  WriteRegister(DEC_RATE, 0x0004);
   // Set data ready polarity (HIGH = Good Data), Enable gSense Compensation and PoP
   WriteRegister(MSC_CTRL, 0x00C1);
   // Configure IMU internal Bartlett filter
@@ -132,8 +132,10 @@ bool ADIS16470_IMU::SwitchToStandardSPI(){
       Wait(0.1);
       int data_count = m_spi->ReadAutoReceivedData(trashBuffer, 0, 0_s);
       while (data_count > 0) {
+        /* Receive data, max of 200 words at a time (prevent potential segfault) */
+        m_spi->ReadAutoReceivedData(trashBuffer, std::min(data_count, 200), 0_s);
+        /*Get the reamining data count */
         data_count = m_spi->ReadAutoReceivedData(trashBuffer, 0, 0_s);
-        m_spi->ReadAutoReceivedData(trashBuffer, data_count, 0_s);
       }
       std::cout << "Paused the auto SPI successfully!" << std::endl;
       }
@@ -403,8 +405,11 @@ void ADIS16470_IMU::Acquire() {
   // Set data packet length
   const int dataset_len = 19; // 18 data points + timestamp
 
+  /* Fixed buffer size */
+  const int BUFFER_SIZE = 4000;
+
   // This buffer can contain many datasets
-  uint32_t buffer[4000];
+  uint32_t buffer[BUFFER_SIZE];
   int data_count = 0;
   int data_remainder = 0;
   int data_to_read = 0;
@@ -439,6 +444,12 @@ void ADIS16470_IMU::Acquire() {
       data_count = m_spi->ReadAutoReceivedData(buffer, 0, 0_s); // Read number of bytes currently stored in the buffer
       data_remainder = data_count % dataset_len; // Check if frame is incomplete. Add 1 because of timestamp
       data_to_read = data_count - data_remainder;  // Remove incomplete data from read count
+      /* Want to cap the data to read in a single read at the buffer size */
+      if(data_to_read > BUFFER_SIZE)
+      {
+          DriverStation::ReportWarning("ADIS16470 data processing thread overrun has occurred!");
+          data_to_read = BUFFER_SIZE - (BUFFER_SIZE % dataset_len);
+      }
       m_spi->ReadAutoReceivedData(buffer, data_to_read, 0_s); // Read data from DMA buffer (only complete sets)
 
       /*
@@ -457,8 +468,8 @@ void ADIS16470_IMU::Acquire() {
       for (int i = 0; i < data_to_read; i += dataset_len) {
         // Timestamp is at buffer[i]
         m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
-        // Scale sensor data
-        delta_angle = (ToInt(&buffer[i + 3]) * delta_angle_sf) / (500.0 / (buffer[i] - previous_timestamp));
+        /* Get delta angle value for selected yaw axis and scale by the elapsed time (based on timestamp) */
+        delta_angle = (ToInt(&buffer[i + 3]) * delta_angle_sf) / (2500.0 / (buffer[i] - previous_timestamp));
         gyro_x = (BuffToShort(&buffer[i + 7]) / 10.0);
         gyro_y = (BuffToShort(&buffer[i + 9]) / 10.0);
         gyro_z = (BuffToShort(&buffer[i + 11]) / 10.0);
@@ -505,9 +516,9 @@ void ADIS16470_IMU::Acquire() {
 
         {
           std::lock_guard<wpi::mutex> sync(m_mutex);
-          // Push data to global variables
+          /* Push data to global variables */
           if(m_first_run) {
-            // Don't accumulate first run. previous_timestamp will be "very" old and the integration will end up way off
+            /* Don't accumulate first run. previous_timestamp will be "very" old and the integration will end up way off */
             m_integ_angle = 0.0;
           }
           else {
