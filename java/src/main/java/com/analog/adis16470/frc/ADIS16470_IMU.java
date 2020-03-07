@@ -165,7 +165,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   }
 
   // Static Constants
-  private static final double delta_angle_sf = 2160.0 / 2147483648.0;
+  private static final double delta_angle_sf = 2160.0 / 2147483648.0; /* 2160 / (2^31) */
   private static final double rad_to_deg = 57.2957795;
   private static final double deg_to_rad = 0.0174532;
   private static final double grav = 9.81;
@@ -199,6 +199,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   private volatile boolean m_first_run = true;
   private volatile boolean m_thread_idle = false;
   private boolean m_auto_configured = false;
+  private double m_scaled_sample_rate = 2500.0;
 
   // Resources
   private SPI m_spi;
@@ -255,14 +256,14 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
       return;
     }
 
-    // Set IMU internal decimation to 2000 SPS
-    writeRegister(DEC_RATE, 0x0000);
+    // Set IMU internal decimation to 4 (output data rate of 2000 SPS / (4 + 1) = 400Hz)
+    writeRegister(DEC_RATE, 4);
 
-    // Set data ready polarity (HIGH = Good Data), Enable gSense Compensation and PoP
-    writeRegister(MSC_CTRL, 0x00C1);
+    // Set data ready polarity (HIGH = Good Data), Disable gSense Compensation and PoP
+    writeRegister(MSC_CTRL, 1);
 
     // Configure IMU internal Bartlett filter
-    writeRegister(FILT_CTRL, 0x0000);
+    writeRegister(FILT_CTRL, 0);
     
     // Configure continuous bias calibration time based on user setting
     writeRegister(NULL_CNFG, (m_calibration_time | 0x0700));
@@ -390,8 +391,8 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
         try{Thread.sleep(100);}catch(InterruptedException e){}
         int data_count = m_spi.readAutoReceivedData(trashBuffer, 0, 0);
         while (data_count > 0) {
+          m_spi.readAutoReceivedData(trashBuffer, Math.min(data_count, 200), 0);
           data_count = m_spi.readAutoReceivedData(trashBuffer, 0, 0);
-          m_spi.readAutoReceivedData(trashBuffer, data_count, 0);
         }
         System.out.println("Paused auto SPI successfully.");
       }
@@ -513,6 +514,26 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
     return 0;
   }
 
+  public int configDecRate(int reg) {
+    int m_reg = reg;
+    if(!switchToStandardSPI()) {
+      DriverStation.reportError("Failed to configure/reconfigure standard SPI.", false);
+      return 2;
+    }
+    if(m_reg > 1999) {
+      DriverStation.reportError("Attemted to write an invalid deimation value.", false);
+      m_reg = 1999;
+    }
+    m_scaled_sample_rate = (((m_reg + 1.0)/2000.0) * 1000000.0);
+    writeRegister(DEC_RATE, m_reg);
+    System.out.println("Decimation register: " + readRegister(DEC_RATE));
+    if(!switchToAutoSPI()) {
+      DriverStation.reportError("Failed to configure/reconfigure auto SPI.", false);
+      return 2;
+    }
+    return 0;
+  }
+
   /**
    * {@inheritDoc}
    */
@@ -572,7 +593,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   private void writeRegister(int reg, int val) {
     ByteBuffer buf = ByteBuffer.allocateDirect(2);
     // low byte
-    buf.put(0, (byte) ((0x80 | reg) | 0x10));
+    buf.put(0, (byte) ((0x80 | reg)));
     buf.put(1, (byte) (val & 0xff));
     m_spi.write(buf, 2);
     // high byte
@@ -626,9 +647,10 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   private void acquire() {
     // Set data packet length
     final int dataset_len = 19; // 18 data points + timestamp
+    final int BUFFER_SIZE = 4000;
 
     // Set up buffers and variables
-    int[] buffer = new int[4000];
+    int[] buffer = new int[BUFFER_SIZE];
     int data_count = 0;
     int data_remainder = 0;
     int data_to_read = 0;
@@ -663,12 +685,18 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
         data_count = m_spi.readAutoReceivedData(buffer, 0, 0); // Read number of bytes currently stored in the buffer
         data_remainder = data_count % dataset_len; // Check if frame is incomplete. Add 1 because of timestamp
         data_to_read = data_count - data_remainder; // Remove incomplete data from read count
+        /* Want to cap the data to read in a single read at the buffer size */
+        if(data_to_read > BUFFER_SIZE)
+        {
+            DriverStation.reportWarning("ADIS16470 data processing thread overrun has occurred!", false);
+            data_to_read = BUFFER_SIZE - (BUFFER_SIZE % dataset_len);
+        }
         m_spi.readAutoReceivedData(buffer, data_to_read, 0); // Read data from DMA buffer (only complete sets)
         
         // Could be multiple data sets in the buffer. Handle each one.
         for (int i = 0; i < data_to_read; i += dataset_len) { 
           // Timestamp is at buffer[i]
-          m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
+          m_dt = ((double)buffer[i] - previous_timestamp) / 1000000.0;
 
           /*
           System.out.println(((toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]))*delta_angle_sf) / ((10000.0 / (buffer[i] - previous_timestamp)) / 100.0));
@@ -687,8 +715,8 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
           + toShort(buffer[17], buffer[18]));
           */
 
-          // Scale sensor data
-          delta_angle = (toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]) * delta_angle_sf) / (500.0 / (buffer[i] - previous_timestamp));
+          /* Get delta angle value for selected yaw axis and scale by the elapsed time (based on timestamp) */
+          delta_angle = (toInt(buffer[i + 3], buffer[i + 4], buffer[i + 5], buffer[i + 6]) * delta_angle_sf) / (m_scaled_sample_rate / (buffer[i] - previous_timestamp));
           gyro_x = (toShort(buffer[i + 7], buffer[i + 8]) / 10.0);
           gyro_y = (toShort(buffer[i + 9], buffer[i + 10]) / 10.0);
           gyro_z = (toShort(buffer[i + 11], buffer[i + 12]) / 10.0);
@@ -728,9 +756,9 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
           }
 
           synchronized (this) {
-            // Push data to global variables
+            /* Push data to global variables */
             if(m_first_run) {
-              // Don't accumulate first run. previous_timestamp will be "very" old and the integration will end up way off
+              /* Don't accumulate first run. previous_timestamp will be "very" old and the integration will end up way off */
               m_integ_angle = 0.0;
             }
             else {
