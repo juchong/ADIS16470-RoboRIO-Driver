@@ -72,8 +72,8 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
 
   // Set IMU internal decimation to 4 (output data rate of 2000 SPS / (4 + 1) = 400Hz)
   WriteRegister(DEC_RATE, 0x0004);
-  // Set data ready polarity (HIGH = Good Data), Enable gSense Compensation and PoP
-  WriteRegister(MSC_CTRL, 0x00C1);
+  // Set data ready polarity (HIGH = Good Data), Disable gSense Compensation and PoP
+  WriteRegister(MSC_CTRL, 0x0001);
   // Configure IMU internal Bartlett filter
   WriteRegister(FILT_CTRL, 0x0000);
   // Configure continuous bias calibration time based on user setting
@@ -266,6 +266,34 @@ int ADIS16470_IMU::ConfigCalTime(ADIS16470CalibrationTime new_cal_time) {
   }
   m_calibration_time = (uint16_t)new_cal_time;
   WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
+  if(!SwitchToAutoSPI()) {
+    DriverStation::ReportError("Failed to configure/reconfigure auto SPI.");
+    return 2;
+  }
+  return 0;
+}
+
+/**
+  * @brief Switches the active SPI port to standard SPI mode, writes a new value to the DECIMATE register in the IMU, and re-enables auto SPI.
+  *
+  * @param reg Decimation value to be set.
+  * 
+  * @return An int indicating the success or failure of writing the new DECIMATE setting and returning to auto SPI mode. 0 = Success, 1 = No Change, 2 = Failure
+  *
+  * This function enters standard SPI mode, writes a new DECIMATE setting to the IMU, adjusts the sample scale factor, and re-enters auto SPI mode. 
+ **/
+int ADIS16470_IMU::ConfigDecRate(uint16_t reg) { 
+  uint16_t m_reg = reg;
+  if(!SwitchToStandardSPI()) {
+    DriverStation::ReportError("Failed to configure/reconfigure standard SPI.");
+    return 2;
+  }
+  if(m_reg > 1999) {
+    DriverStation::ReportError("Attemted to write an invalid deimation value.");
+    m_reg = 1999;
+  }
+  m_scaled_sample_rate = (((m_reg + 1.0)/2000.0) * 1000000.0);
+  WriteRegister(DEC_RATE, m_reg);
   if(!SwitchToAutoSPI()) {
     DriverStation::ReportError("Failed to configure/reconfigure auto SPI.");
     return 2;
@@ -469,7 +497,7 @@ void ADIS16470_IMU::Acquire() {
         // Timestamp is at buffer[i]
         m_dt = (buffer[i] - previous_timestamp) / 1000000.0;
         /* Get delta angle value for selected yaw axis and scale by the elapsed time (based on timestamp) */
-        delta_angle = (ToInt(&buffer[i + 3]) * delta_angle_sf) / (2500.0 / (buffer[i] - previous_timestamp));
+        delta_angle = (ToInt(&buffer[i + 3]) * delta_angle_sf) / (m_scaled_sample_rate / (buffer[i] - previous_timestamp));
         gyro_x = (BuffToShort(&buffer[i + 7]) / 10.0);
         gyro_y = (BuffToShort(&buffer[i + 9]) / 10.0);
         gyro_z = (BuffToShort(&buffer[i + 11]) / 10.0);

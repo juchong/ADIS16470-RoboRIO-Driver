@@ -207,6 +207,8 @@ class ADIS16470_IMU : public GyroBase {
   ADIS16470_IMU(ADIS16470_IMU&&) = default;
   ADIS16470_IMU& operator=(ADIS16470_IMU&&) = default;
 
+  int ConfigDecRate(uint16_t reg);
+
   /**
    * @brief Switches the active SPI port to standard SPI mode, writes the command to activate the new null configuration, and re-enables auto SPI.
    */
@@ -341,6 +343,7 @@ class ADIS16470_IMU : public GyroBase {
   uint16_t m_calibration_time;
   SPI *m_spi = nullptr;
   DigitalInput *m_auto_interrupt = nullptr;
+  double m_scaled_sample_rate = 2500.0; // Default sample rate setting
   
   std::thread m_acquire_task;
 
