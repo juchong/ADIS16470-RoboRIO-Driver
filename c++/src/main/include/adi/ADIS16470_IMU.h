@@ -17,9 +17,10 @@
 #include <frc/DigitalOutput.h>
 #include <frc/DigitalSource.h>
 #include <frc/DigitalInput.h>
-#include <frc/GyroBase.h>
+#include <frc/interfaces/Gyro.h>
 #include <frc/SPI.h>
-#include <frc/smartdashboard/SendableBuilder.h>
+#include <wpi/sendable/SendableHelper.h>
+#include <networktables/NTSendable.h>
 #include <wpi/mutex.h>
 #include <wpi/condition_variable.h>
 
@@ -176,7 +177,9 @@ const double grav = 9.81;
  * This class is for the ADIS16470 IMU connected via the primary SPI port available on the RoboRIO.
  */
 
-class ADIS16470_IMU : public GyroBase {
+class ADIS16470_IMU : public Gyro,
+                 public nt::NTSendable,
+                 public wpi::SendableHelper<ADIS16470_IMU> {
  public:
 
  enum IMUAxis { kX, kY, kZ };
@@ -271,7 +274,7 @@ class ADIS16470_IMU : public GyroBase {
   // IMU yaw axis
   IMUAxis m_yaw_axis;
 
-  void InitSendable(SendableBuilder& builder) override;
+  void InitSendable(nt::NTSendableBuilder& builder) override;
 
  private:
 
