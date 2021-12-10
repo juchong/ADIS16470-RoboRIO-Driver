@@ -6,7 +6,6 @@
 /*----------------------------------------------------------------------------*/
 
 package com.analog.adis16470.frc;
-
 import java.lang.reflect.Array;
 //import java.lang.FdLibm.Pow;
 import java.nio.ByteBuffer;
@@ -23,21 +22,22 @@ import edu.wpi.first.hal.FRCNetComm.tResourceType;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DigitalOutput;
 import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.GyroBase;
 import edu.wpi.first.wpilibj.SPI;
-import edu.wpi.first.wpilibj.Sendable;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.interfaces.Gyro;
-import edu.wpi.first.wpilibj.smartdashboard.SendableBuilder;
+import edu.wpi.first.networktables.NTSendable;
+import edu.wpi.first.networktables.NTSendableBuilder;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.util.sendable.Sendable;
+import edu.wpi.first.util.sendable.SendableBuilder;
 
 /**
  * This class is for the ADIS16470 IMU that connects to the RoboRIO SPI port.
  */
 @SuppressWarnings("unused")
-public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
+public class ADIS16470_IMU implements Gyro, NTSendable {
   
   /* ADIS16470 Register Map Declaration */
   private static final int FLASH_CNT      =   0x00;  //Flash memory write count
@@ -977,6 +977,11 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
    */
   public synchronized double getYFilteredAccelAngle() {
     return m_accelAngleY;
+  }
+
+  public void initSendable(NTSendableBuilder builder) {
+    builder.setSmartDashboardType("Gyro");
+    builder.addDoubleProperty("Value", this::getAngle, null);
   }
 
 }
