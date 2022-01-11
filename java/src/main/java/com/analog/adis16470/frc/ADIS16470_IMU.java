@@ -1,8 +1,11 @@
 /*----------------------------------------------------------------------------*/
-/* Copyright (c) FIRST 2016. All Rights Reserved.                             */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
+/* ADIS16470 RoboRIO Driver (c) by Juan Chong
+/*
+/* The ADIS16470 RoboRIO Driver is licensed under a
+/* Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+/*
+/* You should have received a copy of the license along with this
+/* work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.                             */
 /*----------------------------------------------------------------------------*/
 
 package com.analog.adis16470.frc;
@@ -200,6 +203,7 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
   private volatile boolean m_thread_idle = false;
   private boolean m_auto_configured = false;
   private double m_scaled_sample_rate = 2500.0;
+  private volatile boolean m_needs_flash = false;
 
   // Resources
   private SPI m_spi;
@@ -254,6 +258,37 @@ public class ADIS16470_IMU extends GyroBase implements Gyro, Sendable {
 
     if(!switchToStandardSPI()) {
       return;
+    }
+
+    // Set IMU internal decimation to 4 (output data rate of 2000 SPS / (4 + 1) = 400Hz), output bandwidth = 200Hz
+    if(readRegister(DEC_RATE) != 0x0004){
+      writeRegister(DEC_RATE, 0x0004);
+      m_needs_flash = true;
+      DriverStation.reportWarning("ADIS16470: DEC_RATE register configuration inconsistent! Scheduling flash update...", false);
+    }
+
+    // Set data ready polarity (HIGH = Good Data), Disable gSense Compensation and PoP
+    if(readRegister(MSC_CTRL) != 0x0001){
+      writeRegister(MSC_CTRL, 0x0001); 
+      m_needs_flash = true;
+      DriverStation.reportWarning("ADIS16470: MSC_CTRL register configuration inconsistent! Scheduling flash update...", false);
+    }
+   
+    // Disable IMU internal Bartlett filter (200Hz bandwidth is sufficient)
+    if(readRegister(FILT_CTRL) != 0x0000{
+      writeRegister(FILT_CTRL, 0x0000);
+      m_needs_flash = true;
+      DriverStation.reportWarning("ADIS16470: FILT_CTRL register configuration inconsistent! Scheduling flash update...", false);
+    }
+
+    // If any registers on the IMU don't match the config, trigger a flash update
+    if(m_needs_flash){
+      DriverStation.reportWarning("ADIS16470: Register configuration changed! Starting IMU flash update.", false);
+      writeRegister(GLOB_CMD, 0x0008);
+      // Wait long enough for the flash update to finish (72ms minimum as per the datasheet)
+      Timer.delay(0.3);
+      DriverStation.reportWarning("ADIS16470: Done!", false);
+      m_needs_flash = false;
     }
 
     // Set IMU internal decimation to 4 (output data rate of 2000 SPS / (4 + 1) = 400Hz)

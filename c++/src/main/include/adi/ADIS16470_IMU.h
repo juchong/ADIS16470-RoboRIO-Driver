@@ -1,10 +1,11 @@
 /*----------------------------------------------------------------------------*/
-/* Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.           */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
-/*                                                                            */
-/* Juan Chong - frcsupport@analog.com                                         */
+/* ADIS16470 RoboRIO Driver (c) by Juan Chong
+/*
+/* The ADIS16470 RoboRIO Driver is licensed under a
+/* Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+/*
+/* You should have received a copy of the license along with this
+/* work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.                             */
 /*----------------------------------------------------------------------------*/
 
 #pragma once
@@ -183,7 +184,7 @@ class ADIS16470_IMU : public GyroBase {
 
   /**
   * @brief Default constructor. Uses CS0 on the 10-pin SPI port, the yaw axis is set to the IMU Z axis,
-  * and calibration time is defaulted to 4 seconds.
+  * and calibration time is defaulted to 1 second.
   */
   ADIS16470_IMU();
 
@@ -196,8 +197,10 @@ class ADIS16470_IMU : public GyroBase {
    * @param port The SPI port and CS where the IMU is connected.
    * 
    * @param cal_time The calibration time that should be used on start-up.
+   * 
+   * @param cal_on_start Calibrate the sensor every time robot code starts. 
    */
-  explicit ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470CalibrationTime cal_time);
+  explicit ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470CalibrationTime cal_time, bool cal_on_start);
 
   /**
    * @brief Destructor. Kills the acquisiton loop and closes the SPI peripheral.
@@ -226,6 +229,31 @@ class ADIS16470_IMU : public GyroBase {
    * the "zero" orientation of the sensor needs to be changed in runtime.
    */
   void Reset() override;
+
+  /**
+  * @brief Writes the current IMU configuration (including the initial calibration) to flash.
+  * 
+  * @return A boolean indicating the success or failure of writing the current settings to the IMU flash.
+  */
+  int WriteIMUSettingsToFlash();
+
+  /**
+  * @brief Reads the contents of a specified register location over SPI. 
+  *
+  * @param reg An unsigned, 8-bit register location.
+  * 
+  * @return An unsigned, 16-bit number representing the contents of the requested register location.
+  */
+  uint16_t ReadRegister(uint8_t reg);
+
+  /**
+  * @brief Writes an unsigned, 16-bit value to two adjacent, 8-bit register locations over SPI.
+  *
+  * @param reg An unsigned, 8-bit register location.
+  * 
+  * @param val An unsigned, 16-bit value to be written to the specified register location.
+  */
+  void WriteRegister(uint8_t reg, uint16_t val);
 
   /**
    * @brief Returns the current integrated angle for the axis specified. 
@@ -290,24 +318,6 @@ class ADIS16470_IMU : public GyroBase {
   bool SwitchToAutoSPI();
 
   /**
-  * @brief Reads the contents of a specified register location over SPI. 
-  *
-  * @param reg An unsigned, 8-bit register location.
-  * 
-  * @return An unsigned, 16-bit number representing the contents of the requested register location.
-  */
-  uint16_t ReadRegister(uint8_t reg);
-
-  /**
-  * @brief Writes an unsigned, 16-bit value to two adjacent, 8-bit register locations over SPI.
-  *
-  * @param reg An unsigned, 8-bit register location.
-  * 
-  * @param val An unsigned, 16-bit value to be written to the specified register location.
-  */
-  void WriteRegister(uint8_t reg, uint16_t val);
-
-  /**
   * @brief Main acquisition loop. Typically called asynchronously and free-wheels while the robot code is active. 
   */
   void Acquire();
@@ -338,6 +348,9 @@ class ADIS16470_IMU : public GyroBase {
   volatile bool m_thread_active = false;
   volatile bool m_first_run = true;
   volatile bool m_thread_idle = false;
+  volatile bool m_needs_flash = false;
+  volatile bool m_calibrate_every_start = true;
+  volatile bool m_needs_flash = false;
   bool m_auto_configured = false;
   SPI::Port m_spi_port;
   uint16_t m_calibration_time;

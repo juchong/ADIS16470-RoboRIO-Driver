@@ -1,10 +1,11 @@
 /*----------------------------------------------------------------------------*/
-/* Copyright (c) 2016-2020 Analog Devices Inc. All Rights Reserved.           */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
-/*                                                                            */
-/* Juan Chong - frcsupport@analog.com                                         */
+/* ADIS16470 RoboRIO Driver (c) by Juan Chong
+/*
+/* The ADIS16470 RoboRIO Driver is licensed under a
+/* Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
+/*
+/* You should have received a copy of the license along with this
+/* work. If not, see <http://creativecommons.org/licenses/by-nc-sa/4.0/>.                             */
 /*----------------------------------------------------------------------------*/
 
 #include <string>
@@ -48,12 +49,13 @@ using namespace frc;
 /**
  * Constructor.
  */
-ADIS16470_IMU::ADIS16470_IMU() : ADIS16470_IMU(kZ, SPI::Port::kOnboardCS0, ADIS16470CalibrationTime::_4s) {}
+ADIS16470_IMU::ADIS16470_IMU() : ADIS16470_IMU(kZ, SPI::Port::kOnboardCS0, ADIS16470CalibrationTime::_1s, true) {}
 
-ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470CalibrationTime cal_time) : 
+ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470CalibrationTime cal_time, bool cal_on_start) : 
                 m_yaw_axis(yaw_axis), 
                 m_spi_port(port),
-                m_calibration_time((uint16_t)cal_time) {
+                m_calibration_time((uint16_t)cal_time),
+                m_calibrate_every_start(cal_on_start) {
 
   // Force the IMU reset pin to toggle on startup (doesn't require DS enable)
   // Relies on the RIO hardware by default configuring an output as low
@@ -70,12 +72,37 @@ ADIS16470_IMU::ADIS16470_IMU(IMUAxis yaw_axis, SPI::Port port, ADIS16470Calibrat
     return;
   }
 
-  // Set IMU internal decimation to 4 (output data rate of 2000 SPS / (4 + 1) = 400Hz)
-  WriteRegister(DEC_RATE, 0x0004);
+  // Set IMU internal decimation to 4 (output data rate of 2000 SPS / (4 + 1) = 400Hz), output bandwidth = 200Hz
+  if(ReadRegister(DEC_RATE) != 0x0004){
+    WriteRegister(DEC_RATE, 0x0004);
+    m_needs_flash = true;
+    DriverStation::ReportWarning("ADIS16470: DEC_RATE register configuration inconsistent! Scheduling flash update...");
+  }
+
   // Set data ready polarity (HIGH = Good Data), Disable gSense Compensation and PoP
-  WriteRegister(MSC_CTRL, 0x0001);
-  // Configure IMU internal Bartlett filter
-  WriteRegister(FILT_CTRL, 0x0000);
+  if(ReadRegister(MSC_CTRL) != 0x0001){
+    WriteRegister(MSC_CTRL, 0x0001); 
+    m_needs_flash = true;
+    DriverStation::ReportWarning("ADIS16470: MSC_CTRL register configuration inconsistent! Scheduling flash update...");
+  }
+ 
+  // Disable IMU internal Bartlett filter (200Hz bandwidth is sufficient)
+  if(ReadRegister(FILT_CTRL) != 0x0000{
+    WriteRegister(FILT_CTRL, 0x0000);
+    m_needs_flash = true;
+    DriverStation::ReportWarning("ADIS16470: FILT_CTRL register configuration inconsistent! Scheduling flash update...");
+  }
+
+  // If any registers on the IMU don't match the config, trigger a flash update
+  if(m_needs_flash){
+    DriverStation::ReportWarning("ADIS16470: Register configuration changed! Starting IMU flash update.");
+    WriteRegister(GLOB_CMD, 0x0008);
+    // Wait long enough for the flash update to finish (72ms minimum as per the datasheet)
+    Wait(0.3);
+    DriverStation::ReportWarning("ADIS16470: Done!");
+    m_needs_flash = false;
+  }
+
   // Configure continuous bias calibration time based on user setting
   WriteRegister(NULL_CNFG, m_calibration_time | 0x700);
 
@@ -294,6 +321,27 @@ int ADIS16470_IMU::ConfigDecRate(uint16_t reg) {
   }
   m_scaled_sample_rate = (((m_reg + 1.0)/2000.0) * 1000000.0);
   WriteRegister(DEC_RATE, m_reg);
+  if(!SwitchToAutoSPI()) {
+    DriverStation::ReportError("Failed to configure/reconfigure auto SPI.");
+    return 2;
+  }
+  return 0;
+}
+
+/**
+  * @brief Writes the current IMU configuration (including the initial calibration) to flash.
+  *
+  * This function triggers an IMU subroutine (GLOB_CMD = 0x0008) that writes the current IMU register configuration
+  * to the IMU's onboard ROM. Once the configuration is stored to the IMU's onboard flash, the IMU will automatically
+  * boot with the previous configuration.
+ **/
+int ADIS16470_IMU::WriteIMUSettingsToFlash() {
+  if(!SwitchToStandardSPI()) {
+    DriverStation::ReportError("Failed to configure/reconfigure standard SPI.");
+    return 2;
+  }
+  WriteRegister(GLOB_CMD, 0x0008);
+  wait(1.0);
   if(!SwitchToAutoSPI()) {
     DriverStation::ReportError("Failed to configure/reconfigure auto SPI.");
     return 2;
